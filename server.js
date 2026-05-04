@@ -114,7 +114,18 @@ function publicState() {
 }
 
 function publicUser(u) {
-  return { username: u.username, role: u.role };
+  return { username: u.username, email: u.email || '', role: u.role };
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function isValidEmail(s) { return EMAIL_RE.test(s); }
+
+function findUserByLogin(login) {
+  const q = (login || '').toLowerCase();
+  return state.users.find(u =>
+    u.username.toLowerCase() === q ||
+    (u.email && u.email.toLowerCase() === q)
+  ) || null;
 }
 
 function findUserByToken(token) {
@@ -176,14 +187,14 @@ function adminOnly(req, res, next) {
 }
 
 app.post('/api/login', (req, res) => {
-  const username = asStr(req.body && req.body.username);
+  const login = asStr((req.body && (req.body.login || req.body.username)) || '');
   const password = asStr(req.body && req.body.password);
-  const user = state.users.find(u =>
-    u.username.toLowerCase() === username.toLowerCase() && u.password === password
-  );
-  if (!user) return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
-  const token = Buffer.from(user.username + ':' + user.password, 'utf8').toString('base64');
-  res.json({ token, user: publicUser(user) });
+  const candidate = findUserByLogin(login);
+  if (!candidate || candidate.password !== password) {
+    return res.status(401).json({ error: 'Usuário/e-mail ou senha inválidos.' });
+  }
+  const token = Buffer.from(candidate.username + ':' + candidate.password, 'utf8').toString('base64');
+  res.json({ token, user: publicUser(candidate) });
 });
 
 app.get('/api/state', authMiddleware, (req, res) => {
@@ -377,17 +388,22 @@ app.get('/api/users', authMiddleware, adminOnly, (req, res) => {
 app.post('/api/users', authMiddleware, adminOnly, async (req, res) => {
   const b = req.body || {};
   const username = asStr(b.username);
+  const email = asStr(b.email).toLowerCase();
   const password = asStr(b.password);
   const role = asStr(b.role) === 'admin' ? 'admin' : 'user';
-  if (!username || !password) return res.status(400).json({ error: 'Usuário e senha são obrigatórios.' });
+  if (!username || !email || !password) return res.status(400).json({ error: 'Usuário, e-mail e senha são obrigatórios.' });
   if (username.length < 3) return res.status(400).json({ error: 'Usuário deve ter ao menos 3 caracteres.' });
+  if (!isValidEmail(email)) return res.status(400).json({ error: 'E-mail inválido.' });
   if (password.length < 4) return res.status(400).json({ error: 'Senha deve ter ao menos 4 caracteres.' });
   if (state.users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
     return res.status(409).json({ error: 'Já existe um usuário com esse nome.' });
   }
-  state.users.push({ username, password, role });
+  if (state.users.some(u => (u.email || '').toLowerCase() === email)) {
+    return res.status(409).json({ error: 'Já existe um usuário com esse e-mail.' });
+  }
+  state.users.push({ username, email, password, role });
   await persist();
-  res.json({ ok: true, user: publicUser({ username, role }) });
+  res.json({ ok: true, user: publicUser({ username, email, role }) });
 });
 
 app.put('/api/users/:username', authMiddleware, adminOnly, async (req, res) => {
@@ -396,10 +412,18 @@ app.put('/api/users/:username', authMiddleware, adminOnly, async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Usuário não encontrado.' });
   const b = req.body || {};
   const newPassword = b.password !== undefined ? asStr(b.password) : null;
+  const newEmail = b.email !== undefined ? asStr(b.email).toLowerCase() : null;
   const newRole = b.role !== undefined ? (asStr(b.role) === 'admin' ? 'admin' : 'user') : null;
-  if (newPassword !== null) {
+  if (newPassword !== null && newPassword !== '') {
     if (newPassword.length < 4) return res.status(400).json({ error: 'Senha deve ter ao menos 4 caracteres.' });
     state.users[idx].password = newPassword;
+  }
+  if (newEmail !== null && newEmail !== '') {
+    if (!isValidEmail(newEmail)) return res.status(400).json({ error: 'E-mail inválido.' });
+    if (state.users.some((u, i) => i !== idx && (u.email || '').toLowerCase() === newEmail)) {
+      return res.status(409).json({ error: 'Já existe um usuário com esse e-mail.' });
+    }
+    state.users[idx].email = newEmail;
   }
   if (newRole !== null && newRole !== state.users[idx].role) {
     if (state.users[idx].role === 'admin' && newRole !== 'admin') {

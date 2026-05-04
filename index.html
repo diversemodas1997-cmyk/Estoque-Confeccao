@@ -327,35 +327,54 @@
   }
   .toast.success { background: var(--success); color: white; }
   .toast.error { background: var(--danger); color: white; }
-  .conn-status {
-    position: fixed;
-    bottom: 14px;
-    right: 14px;
-    padding: 6px 12px;
+  .conn-status { display: none; }
+  .sync {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
     border-radius: 999px;
     font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
-    background: var(--bg-card);
+    background: var(--bg-soft);
     border: 1px solid var(--border);
     color: var(--text-soft);
-    box-shadow: var(--shadow-sm);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    z-index: 90;
     user-select: none;
+    transition: all 0.2s ease;
   }
-  .conn-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--text-mute);
-    box-shadow: 0 0 0 0 rgba(0,0,0,0);
+  .sync .sync-icon {
+    font-size: 14px;
+    line-height: 1;
+    transition: transform 0.3s ease;
   }
-  .conn-status.conn-online .conn-dot { background: #10b981; box-shadow: 0 0 6px #10b981; }
-  .conn-status.conn-offline .conn-dot { background: #f87171; }
-  .conn-status.conn-connecting .conn-dot { background: #fbbf24; animation: pulse 1.4s ease-in-out infinite; }
+  .sync.sync-online {
+    background: #064e3b;
+    border-color: #047857;
+    color: #6ee7b7;
+  }
+  .sync.sync-online .sync-icon { color: #10b981; text-shadow: 0 0 6px #10b981; }
+  .sync.sync-saving {
+    background: #78350f;
+    border-color: #a16207;
+    color: #fcd34d;
+  }
+  .sync.sync-saving .sync-icon { color: #fbbf24; animation: spin 1s linear infinite; }
+  .sync.sync-syncing {
+    background: #1e3a8a;
+    border-color: #1d4ed8;
+    color: #93c5fd;
+  }
+  .sync.sync-syncing .sync-icon { color: #3b82f6; animation: pulse 1.2s ease-in-out infinite; }
+  .sync.sync-offline {
+    background: #7f1d1d;
+    border-color: #b91c1c;
+    color: #fca5a5;
+  }
+  .sync.sync-offline .sync-icon { color: #f87171; }
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+  @keyframes spin { from{transform: rotate(0);} to{transform: rotate(360deg);} }
   .empty {
     padding: 32px;
     text-align: center;
@@ -564,8 +583,8 @@
     <p class="login-sub">Faça login para continuar</p>
     <div id="login-error" class="login-error"></div>
     <div class="login-field">
-      <label>Usuário</label>
-      <input type="text" name="username" required autocomplete="username">
+      <label>Usuário ou e-mail</label>
+      <input type="text" name="login" required autocomplete="username">
     </div>
     <div class="login-field">
       <label>Senha</label>
@@ -597,6 +616,10 @@
       <button id="btn-restore" data-admin-only>Restaurar backup</button>
       <input type="file" id="file-restore" accept=".json" style="display:none;">
       <span class="user-info">
+        <span id="sync-indicator" class="sync sync-offline" title="Status de sincronização">
+          <span class="sync-icon">●</span>
+          <span id="sync-text">conectando</span>
+        </span>
         <span id="login-username"></span>
         <span id="login-badge" class="user-badge"></span>
         <button id="btn-trocar-senha" class="ghost" style="font-size: 12px; padding: 4px 10px;">Trocar senha</button>
@@ -787,7 +810,10 @@
       <form id="form-usuario">
         <div class="form-grid-cad-1">
           <input type="text" name="username" placeholder="Nome de usuário" required minlength="3">
+          <input type="email" name="email" placeholder="E-mail" required>
           <input type="password" name="password" placeholder="Senha (mín. 4 caracteres)" required minlength="4">
+        </div>
+        <div class="form-grid-cad-2">
           <select name="role" required>
             <option value="user">Usuário comum</option>
             <option value="admin">Administrador</option>
@@ -802,7 +828,7 @@
       <p class="helper">Clique em editar para trocar a senha ou alterar o papel. Você não pode excluir a si mesmo nem o último administrador.</p>
       <div class="table-wrap">
         <table id="tbl-usuarios">
-          <thead><tr><th>Usuário</th><th>Papel</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Usuário</th><th>E-mail</th><th>Papel</th><th>Ações</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -948,6 +974,10 @@
         <input type="text" id="edit-user-display" disabled>
       </div>
       <div class="modal-field">
+        <label>E-mail</label>
+        <input type="email" name="email">
+      </div>
+      <div class="modal-field">
         <label>Nova senha (deixe em branco para não alterar)</label>
         <input type="password" name="password" minlength="4">
       </div>
@@ -978,33 +1008,60 @@
   let stateLoaded = false;
   function isAdmin() { return !!(currentUser && currentUser.role === 'admin'); }
 
-  async function api(method, path, body) {
-    const headers = { 'Content-Type': 'application/json' };
-    if (authToken) headers['X-Auth'] = authToken;
-    const res = await fetch(path, {
-      method,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-    let data = null;
-    const text = await res.text();
-    if (text) { try { data = JSON.parse(text); } catch (_) { data = { raw: text }; } }
-    if (!res.ok) {
-      const msg = (data && data.error) || ('Erro ' + res.status);
-      const err = new Error(msg);
-      err.status = res.status;
-      throw err;
+  let inFlightWrites = 0;
+  let socketConnected = false;
+
+  function updateSyncIndicator() {
+    const el = document.getElementById('sync-indicator');
+    if (!el) return;
+    const txt = document.getElementById('sync-text');
+    const ic = el.querySelector('.sync-icon');
+    let state, msg, icon;
+    if (!socketConnected) {
+      state = 'offline'; msg = 'sem conexão'; icon = '●';
+    } else if (inFlightWrites > 0) {
+      state = 'saving'; msg = 'salvando...'; icon = '⟳';
+    } else {
+      state = 'online'; msg = 'sincronizado'; icon = '✓';
     }
-    return data;
+    el.classList.remove('sync-online','sync-offline','sync-saving','sync-syncing');
+    el.classList.add('sync-' + state);
+    if (txt) txt.textContent = msg;
+    if (ic) ic.textContent = icon;
+    el.title = state === 'online' ? 'Tudo sincronizado com o servidor.'
+      : state === 'saving' ? 'Salvando alterações no servidor...'
+      : 'Sem conexão com o servidor. As alterações não estão sendo salvas.';
   }
 
-  function setConnStatus(state, msg) {
-    const el = document.getElementById('conn-status');
-    const txt = document.getElementById('conn-text');
-    if (!el) return;
-    el.classList.remove('conn-online', 'conn-offline', 'conn-connecting');
-    el.classList.add('conn-' + state);
-    txt.textContent = msg;
+  async function api(method, path, body) {
+    const isWrite = method !== 'GET';
+    if (isWrite) { inFlightWrites++; updateSyncIndicator(); }
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (authToken) headers['X-Auth'] = authToken;
+      const res = await fetch(path, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+      let data = null;
+      const text = await res.text();
+      if (text) { try { data = JSON.parse(text); } catch (_) { data = { raw: text }; } }
+      if (!res.ok) {
+        const msg = (data && data.error) || ('Erro ' + res.status);
+        const err = new Error(msg);
+        err.status = res.status;
+        throw err;
+      }
+      return data;
+    } finally {
+      if (isWrite) { inFlightWrites--; updateSyncIndicator(); }
+    }
+  }
+
+  function setConnStatus(state) {
+    socketConnected = (state === 'online');
+    updateSyncIndicator();
   }
   function applyRole() {
     document.body.setAttribute('data-role', currentUser ? currentUser.role : '');
@@ -1478,16 +1535,17 @@
     const tb = document.querySelector('#tbl-usuarios tbody');
     if (!tb) return;
     if (usuarios.length === 0) {
-      tb.innerHTML = '<tr><td colspan="3" class="empty">Nenhum usuário carregado.</td></tr>';
+      tb.innerHTML = '<tr><td colspan="4" class="empty">Nenhum usuário carregado.</td></tr>';
       return;
     }
     tb.innerHTML = usuarios.map(u => {
       const isMe = currentUser && u.username.toLowerCase() === currentUser.username.toLowerCase();
       const badge = u.role === 'admin' ? '<span class="user-badge admin">admin</span>' : '<span class="user-badge user">usuário</span>';
+      const email = u.email ? escHtml(u.email) : '<span style="color: var(--text-mute);">— sem e-mail —</span>';
       let acoes = '<button class="edit-link" data-edit-user="' + escHtml(u.username) + '">editar</button>';
       if (!isMe) acoes += '<button class="link-btn" data-del-user="' + escHtml(u.username) + '">excluir</button>';
       else acoes += '<span style="font-size:11px; color: var(--text-mute);">(você)</span>';
-      return '<tr><td>' + escHtml(u.username) + '</td><td>' + badge + '</td><td>' + acoes + '</td></tr>';
+      return '<tr><td>' + escHtml(u.username) + '</td><td>' + email + '</td><td>' + badge + '</td><td>' + acoes + '</td></tr>';
     }).join('');
   }
   function abrirEdicaoUsuario(username) {
@@ -1496,10 +1554,11 @@
     const f = document.getElementById('form-edit-user');
     f.username.value = u.username;
     document.getElementById('edit-user-display').value = u.username;
+    f.email.value = u.email || '';
     f.password.value = '';
     f.role.value = u.role;
     document.getElementById('modal-edit-user').style.display = 'flex';
-    setTimeout(() => f.password.focus(), 50);
+    setTimeout(() => f.email.focus(), 50);
   }
   function fecharModalEditUser() { document.getElementById('modal-edit-user').style.display = 'none'; }
   function abrirModalSenha() {
@@ -1588,12 +1647,12 @@
   document.getElementById('form-login').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const fd = new FormData(ev.target);
-    const username = (fd.get('username') || '').toString().trim();
+    const login = (fd.get('login') || '').toString().trim();
     const password = (fd.get('password') || '').toString();
     const err = document.getElementById('login-error');
     err.style.display = 'none';
     try {
-      const r = await api('POST', '/api/login', { username, password });
+      const r = await api('POST', '/api/login', { login, password });
       authToken = r.token;
       currentUser = r.user;
       saveJson(KEY_SESSION, { token: authToken, user: currentUser });
@@ -1844,10 +1903,11 @@
     if (!isAdmin()) { toast('Apenas administradores podem cadastrar usuários.', 'error'); return; }
     const fd = new FormData(ev.target);
     const username = (fd.get('username') || '').toString().trim();
+    const email = (fd.get('email') || '').toString().trim();
     const password = (fd.get('password') || '').toString();
     const role = (fd.get('role') || 'user').toString();
     try {
-      await api('POST', '/api/users', { username, password, role });
+      await api('POST', '/api/users', { username, email, password, role });
       toast('Usuário cadastrado: ' + username);
       ev.target.reset();
       ev.target.querySelector('select[name=role]').value = 'user';
@@ -1879,10 +1939,12 @@
     if (!isAdmin()) return;
     const fd = new FormData(ev.target);
     const username = (fd.get('username') || '').toString();
+    const email = (fd.get('email') || '').toString().trim();
     const password = (fd.get('password') || '').toString();
     const role = (fd.get('role') || 'user').toString();
     const body = { role };
     if (password) body.password = password;
+    if (email) body.email = email;
     try {
       await api('PUT', '/api/users/' + encodeURIComponent(username), body);
       toast('Usuário atualizado: ' + username);
