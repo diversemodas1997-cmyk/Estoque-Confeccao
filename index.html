@@ -588,6 +588,7 @@
       <button data-nav="inventario">Contagem</button>
       <button data-nav="produtos">Produtos</button>
       <button data-nav="fifo">Relatório</button>
+      <button data-nav="usuarios" data-admin-only>Usuários</button>
       <button data-nav="config" data-admin-only>Configurações</button>
     </nav>
     <div class="actions-top">
@@ -598,6 +599,7 @@
       <span class="user-info">
         <span id="login-username"></span>
         <span id="login-badge" class="user-badge"></span>
+        <button id="btn-trocar-senha" class="ghost" style="font-size: 12px; padding: 4px 10px;">Trocar senha</button>
         <button id="btn-logout" class="ghost" style="font-size: 12px; padding: 4px 10px;">Sair</button>
       </span>
     </div>
@@ -777,6 +779,36 @@
     </div>
   </section>
 
+  <section id="view-usuarios" class="app-section">
+    <h2 class="section-title">Usuários</h2>
+    <div class="card">
+      <h2>Cadastrar novo usuário</h2>
+      <p class="helper">Crie contas para a equipe. Administradores podem editar tudo; usuários comuns só registram movimentações.</p>
+      <form id="form-usuario">
+        <div class="form-grid-cad-1">
+          <input type="text" name="username" placeholder="Nome de usuário" required minlength="3">
+          <input type="password" name="password" placeholder="Senha (mín. 4 caracteres)" required minlength="4">
+          <select name="role" required>
+            <option value="user">Usuário comum</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+        <button type="submit" class="primary">+ Cadastrar usuário</button>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top: 18px;">
+      <h2>Usuários cadastrados</h2>
+      <p class="helper">Clique em editar para trocar a senha ou alterar o papel. Você não pode excluir a si mesmo nem o último administrador.</p>
+      <div class="table-wrap">
+        <table id="tbl-usuarios">
+          <thead><tr><th>Usuário</th><th>Papel</th><th>Ações</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <section id="view-config" class="app-section">
     <h2 class="section-title">Configurações</h2>
     <div class="card" style="max-width: 520px;">
@@ -874,6 +906,60 @@
       </div>
       <div class="modal-actions">
         <button type="button" class="ghost" data-close>Cancelar</button>
+        <button type="submit" class="primary">Salvar alterações</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="modal-senha" class="modal" style="display:none;">
+  <div class="modal-overlay" data-close-senha></div>
+  <div class="modal-content" style="max-width: 420px;">
+    <h2>Trocar minha senha</h2>
+    <form id="form-trocar-senha">
+      <div class="modal-field">
+        <label>Senha atual</label>
+        <input type="password" name="currentPassword" required>
+      </div>
+      <div class="modal-field">
+        <label>Nova senha (mín. 4 caracteres)</label>
+        <input type="password" name="newPassword" required minlength="4">
+      </div>
+      <div class="modal-field">
+        <label>Confirmar nova senha</label>
+        <input type="password" name="confirmPassword" required minlength="4">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost" data-close-senha>Cancelar</button>
+        <button type="submit" class="primary">Trocar senha</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="modal-edit-user" class="modal" style="display:none;">
+  <div class="modal-overlay" data-close-user></div>
+  <div class="modal-content" style="max-width: 420px;">
+    <h2>Editar usuário</h2>
+    <form id="form-edit-user">
+      <input type="hidden" name="username">
+      <div class="modal-field">
+        <label>Usuário</label>
+        <input type="text" id="edit-user-display" disabled>
+      </div>
+      <div class="modal-field">
+        <label>Nova senha (deixe em branco para não alterar)</label>
+        <input type="password" name="password" minlength="4">
+      </div>
+      <div class="modal-field">
+        <label>Papel</label>
+        <select name="role">
+          <option value="user">Usuário comum</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost" data-close-user>Cancelar</button>
         <button type="submit" class="primary">Salvar alterações</button>
       </div>
     </form>
@@ -1381,6 +1467,49 @@
     f.estoqueMax.value = config.estoqueMax;
   }
 
+  let usuarios = [];
+  async function carregarUsuarios() {
+    if (!isAdmin()) { usuarios = []; renderUsuarios(); return; }
+    try { usuarios = await api('GET', '/api/users'); }
+    catch (ex) { usuarios = []; }
+    renderUsuarios();
+  }
+  function renderUsuarios() {
+    const tb = document.querySelector('#tbl-usuarios tbody');
+    if (!tb) return;
+    if (usuarios.length === 0) {
+      tb.innerHTML = '<tr><td colspan="3" class="empty">Nenhum usuário carregado.</td></tr>';
+      return;
+    }
+    tb.innerHTML = usuarios.map(u => {
+      const isMe = currentUser && u.username.toLowerCase() === currentUser.username.toLowerCase();
+      const badge = u.role === 'admin' ? '<span class="user-badge admin">admin</span>' : '<span class="user-badge user">usuário</span>';
+      let acoes = '<button class="edit-link" data-edit-user="' + escHtml(u.username) + '">editar</button>';
+      if (!isMe) acoes += '<button class="link-btn" data-del-user="' + escHtml(u.username) + '">excluir</button>';
+      else acoes += '<span style="font-size:11px; color: var(--text-mute);">(você)</span>';
+      return '<tr><td>' + escHtml(u.username) + '</td><td>' + badge + '</td><td>' + acoes + '</td></tr>';
+    }).join('');
+  }
+  function abrirEdicaoUsuario(username) {
+    const u = usuarios.find(x => x.username === username);
+    if (!u) { toast('Usuário não encontrado.', 'error'); return; }
+    const f = document.getElementById('form-edit-user');
+    f.username.value = u.username;
+    document.getElementById('edit-user-display').value = u.username;
+    f.password.value = '';
+    f.role.value = u.role;
+    document.getElementById('modal-edit-user').style.display = 'flex';
+    setTimeout(() => f.password.focus(), 50);
+  }
+  function fecharModalEditUser() { document.getElementById('modal-edit-user').style.display = 'none'; }
+  function abrirModalSenha() {
+    const f = document.getElementById('form-trocar-senha');
+    f.reset();
+    document.getElementById('modal-senha').style.display = 'flex';
+    setTimeout(() => f.currentPassword.focus(), 50);
+  }
+  function fecharModalSenha() { document.getElementById('modal-senha').style.display = 'none'; }
+
   function applyState(s) {
     if (!s) return;
     produtos = Array.isArray(s.produtos) ? s.produtos : [];
@@ -1395,6 +1524,7 @@
     popularSelects();
     popularConfigForm();
     refreshAll();
+    carregarUsuarios();
   }
 
   async function ensureCatalogoSeed() {
@@ -1622,10 +1752,11 @@
   document.getElementById('fifo-prod').addEventListener('change', renderFIFO);
 
   function navigate(view) {
-    if (view === 'config' && !isAdmin()) {
+    if ((view === 'config' || view === 'usuarios') && !isAdmin()) {
       toast('Acesso restrito a administradores.', 'error');
       return;
     }
+    if (view === 'usuarios') carregarUsuarios();
     document.querySelectorAll('.app-section').forEach(s => s.classList.remove('active'));
     const target = document.getElementById('view-' + view);
     if (target) target.classList.add('active');
@@ -1677,7 +1808,87 @@
     } catch (ex) { toast(ex.message, 'error'); }
   });
   document.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape') fecharModalEdit();
+    if (ev.key === 'Escape') {
+      fecharModalEdit();
+      fecharModalEditUser();
+      fecharModalSenha();
+    }
+  });
+
+  document.getElementById('btn-trocar-senha').addEventListener('click', abrirModalSenha);
+
+  document.addEventListener('click', (ev) => {
+    if (ev.target.hasAttribute('data-close-senha')) fecharModalSenha();
+    if (ev.target.hasAttribute('data-close-user')) fecharModalEditUser();
+  });
+
+  document.getElementById('form-trocar-senha').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(ev.target);
+    const currentPassword = (fd.get('currentPassword') || '').toString();
+    const newPassword = (fd.get('newPassword') || '').toString();
+    const confirmPassword = (fd.get('confirmPassword') || '').toString();
+    if (newPassword !== confirmPassword) { toast('A confirmação não bate com a nova senha.', 'error'); return; }
+    try {
+      const r = await api('PUT', '/api/me/password', { currentPassword, newPassword });
+      authToken = r.token;
+      saveJson(KEY_SESSION, { token: authToken, user: currentUser });
+      toast('Senha trocada com sucesso.');
+      fecharModalSenha();
+      connectSocket();
+    } catch (ex) { toast(ex.message, 'error'); }
+  });
+
+  document.getElementById('form-usuario').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!isAdmin()) { toast('Apenas administradores podem cadastrar usuários.', 'error'); return; }
+    const fd = new FormData(ev.target);
+    const username = (fd.get('username') || '').toString().trim();
+    const password = (fd.get('password') || '').toString();
+    const role = (fd.get('role') || 'user').toString();
+    try {
+      await api('POST', '/api/users', { username, password, role });
+      toast('Usuário cadastrado: ' + username);
+      ev.target.reset();
+      ev.target.querySelector('select[name=role]').value = 'user';
+      carregarUsuarios();
+    } catch (ex) { toast(ex.message, 'error'); }
+  });
+
+  document.addEventListener('click', async (ev) => {
+    const editU = ev.target.getAttribute('data-edit-user');
+    const delU = ev.target.getAttribute('data-del-user');
+    if (editU) {
+      if (!isAdmin()) return;
+      abrirEdicaoUsuario(editU);
+      return;
+    }
+    if (delU) {
+      if (!isAdmin()) return;
+      if (!confirm('Excluir o usuário "' + delU + '"? Essa ação não pode ser desfeita.')) return;
+      try {
+        await api('DELETE', '/api/users/' + encodeURIComponent(delU));
+        toast('Usuário excluído.');
+        carregarUsuarios();
+      } catch (ex) { toast(ex.message, 'error'); }
+    }
+  });
+
+  document.getElementById('form-edit-user').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!isAdmin()) return;
+    const fd = new FormData(ev.target);
+    const username = (fd.get('username') || '').toString();
+    const password = (fd.get('password') || '').toString();
+    const role = (fd.get('role') || 'user').toString();
+    const body = { role };
+    if (password) body.password = password;
+    try {
+      await api('PUT', '/api/users/' + encodeURIComponent(username), body);
+      toast('Usuário atualizado: ' + username);
+      fecharModalEditUser();
+      carregarUsuarios();
+    } catch (ex) { toast(ex.message, 'error'); }
   });
 
   function exportCSV() {

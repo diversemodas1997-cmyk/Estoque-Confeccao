@@ -370,6 +370,79 @@ app.delete('/api/ajuste/:id', authMiddleware, adminOnly, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/users', authMiddleware, adminOnly, (req, res) => {
+  res.json(state.users.map(publicUser));
+});
+
+app.post('/api/users', authMiddleware, adminOnly, async (req, res) => {
+  const b = req.body || {};
+  const username = asStr(b.username);
+  const password = asStr(b.password);
+  const role = asStr(b.role) === 'admin' ? 'admin' : 'user';
+  if (!username || !password) return res.status(400).json({ error: 'Usuário e senha são obrigatórios.' });
+  if (username.length < 3) return res.status(400).json({ error: 'Usuário deve ter ao menos 3 caracteres.' });
+  if (password.length < 4) return res.status(400).json({ error: 'Senha deve ter ao menos 4 caracteres.' });
+  if (state.users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+    return res.status(409).json({ error: 'Já existe um usuário com esse nome.' });
+  }
+  state.users.push({ username, password, role });
+  await persist();
+  res.json({ ok: true, user: publicUser({ username, role }) });
+});
+
+app.put('/api/users/:username', authMiddleware, adminOnly, async (req, res) => {
+  const target = asStr(req.params.username).toLowerCase();
+  const idx = state.users.findIndex(u => u.username.toLowerCase() === target);
+  if (idx === -1) return res.status(404).json({ error: 'Usuário não encontrado.' });
+  const b = req.body || {};
+  const newPassword = b.password !== undefined ? asStr(b.password) : null;
+  const newRole = b.role !== undefined ? (asStr(b.role) === 'admin' ? 'admin' : 'user') : null;
+  if (newPassword !== null) {
+    if (newPassword.length < 4) return res.status(400).json({ error: 'Senha deve ter ao menos 4 caracteres.' });
+    state.users[idx].password = newPassword;
+  }
+  if (newRole !== null && newRole !== state.users[idx].role) {
+    if (state.users[idx].role === 'admin' && newRole !== 'admin') {
+      const admins = state.users.filter(u => u.role === 'admin').length;
+      if (admins <= 1) return res.status(400).json({ error: 'Não é possível remover o último administrador.' });
+    }
+    state.users[idx].role = newRole;
+  }
+  await persist();
+  res.json({ ok: true });
+});
+
+app.delete('/api/users/:username', authMiddleware, adminOnly, async (req, res) => {
+  const target = asStr(req.params.username).toLowerCase();
+  const idx = state.users.findIndex(u => u.username.toLowerCase() === target);
+  if (idx === -1) return res.status(404).json({ error: 'Usuário não encontrado.' });
+  if (state.users[idx].username.toLowerCase() === req.user.username.toLowerCase()) {
+    return res.status(400).json({ error: 'Você não pode excluir a si mesmo.' });
+  }
+  if (state.users[idx].role === 'admin') {
+    const admins = state.users.filter(u => u.role === 'admin').length;
+    if (admins <= 1) return res.status(400).json({ error: 'Não é possível remover o último administrador.' });
+  }
+  state.users.splice(idx, 1);
+  await persist();
+  res.json({ ok: true });
+});
+
+app.put('/api/me/password', authMiddleware, async (req, res) => {
+  const b = req.body || {};
+  const currentPassword = asStr(b.currentPassword);
+  const newPassword = asStr(b.newPassword);
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Informe a senha atual e a nova senha.' });
+  if (newPassword.length < 4) return res.status(400).json({ error: 'Nova senha deve ter ao menos 4 caracteres.' });
+  const idx = state.users.findIndex(u => u.username.toLowerCase() === req.user.username.toLowerCase());
+  if (idx === -1) return res.status(404).json({ error: 'Usuário não encontrado.' });
+  if (state.users[idx].password !== currentPassword) return res.status(401).json({ error: 'Senha atual incorreta.' });
+  state.users[idx].password = newPassword;
+  await persist();
+  const newToken = Buffer.from(state.users[idx].username + ':' + newPassword, 'utf8').toString('base64');
+  res.json({ ok: true, token: newToken });
+});
+
 app.post('/api/seed-produtos', authMiddleware, adminOnly, async (req, res) => {
   const lista = Array.isArray(req.body && req.body.produtos) ? req.body.produtos : null;
   if (!lista) return res.status(400).json({ error: 'Lista inválida.' });
