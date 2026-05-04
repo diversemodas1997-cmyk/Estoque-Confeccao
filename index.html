@@ -607,6 +607,7 @@
       <button data-nav="inventario">Contagem</button>
       <button data-nav="produtos">Produtos</button>
       <button data-nav="fifo">Relatório</button>
+      <button data-nav="integracoes" data-admin-only>Integrações</button>
       <button data-nav="usuarios" data-admin-only>Usuários</button>
       <button data-nav="config" data-admin-only>Configurações</button>
     </nav>
@@ -796,6 +797,70 @@
       <div class="table-wrap" style="max-height: 460px;">
         <table id="tbl-produtos">
           <thead><tr><th>Código</th><th>Item</th><th>Tipo</th><th>Cor</th><th>Tamanho</th><th class="num">CMV</th><th>Ações</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-integracoes" class="app-section">
+    <h2 class="section-title">Integrações</h2>
+    <div class="card">
+      <h2>Importar vendas do ERP (CSV ou Excel)</h2>
+      <p class="helper">Exporte o relatório de vendas no seu ERP, escolha o arquivo abaixo e o sistema cria as saídas automaticamente. SKU é mapeado pelo nome do item (ou pelo campo SKU customizado do produto). Pedidos já importados são detectados e ignorados.</p>
+      <div class="form-grid-cad-2" style="align-items: end;">
+        <div>
+          <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Arquivo (.csv, .xlsx, .xls)</label>
+          <input type="file" id="import-file" accept=".csv,.xlsx,.xls">
+        </div>
+        <div></div>
+      </div>
+      <div id="import-mapping" style="display:none; margin-top: 16px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-soft);">
+        <p class="helper" style="margin-top:0;">Confirme qual coluna do arquivo corresponde a cada campo. As detecções automáticas estão pré-selecionadas.</p>
+        <div class="form-grid-cad-1">
+          <div>
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">SKU *</label>
+            <select id="map-sku"></select>
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Quantidade *</label>
+            <select id="map-quantidade"></select>
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Valor unitário *</label>
+            <select id="map-valor"></select>
+          </div>
+        </div>
+        <div class="form-grid-cad-2">
+          <div>
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Data *</label>
+            <select id="map-data"></select>
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Nº do pedido (anti-duplicata)</label>
+            <select id="map-externalId"></select>
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Destino</label>
+            <select id="map-destino">
+              <option value="cliente">Cliente (padrão)</option>
+              <option value="cancelamento">Cancelamento</option>
+              <option value="devolucao">Devolução</option>
+              <option value="defeitos">Defeitos</option>
+            </select>
+          </div>
+        </div>
+        <button type="button" id="btn-import-preview" class="primary" style="margin-top: 12px;">Pré-visualizar importação</button>
+      </div>
+      <div id="import-preview" style="display:none; margin-top: 16px;"></div>
+    </div>
+
+    <div class="card" style="margin-top: 18px;">
+      <h2>Histórico de saídas via ERP</h2>
+      <p class="helper">Últimas 100 saídas registradas via importação.</p>
+      <div class="table-wrap" style="max-height: 420px;">
+        <table id="tbl-erp-saidas">
+          <thead><tr><th>Data</th><th>Cód.</th><th>Item</th><th class="num">Qtd</th><th class="num">Valor</th><th>Pedido</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -996,6 +1061,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
 (function() {
@@ -1361,7 +1427,8 @@
     tbS.innerHTML = sais.length ? sais.map(s => {
       const p = produtos.find(p => p.codigo === s.codigo);
       const di = destinoInfo(s.destino);
-      return '<tr><td>' + fmtData(s.data) + '</td><td class="code">' + fmtCodigo(s.codigo) + '</td><td>' + escHtml(p ? p.item : '—') + '</td><td><span class="pill ' + di.pill + '">' + di.label + '</span></td><td class="num">' + fmtNum(s.quantidade) + '</td><td class="num">' + fmtBRL(s.valor) + '</td><td class="num">' + fmtBRL(s.quantidade * s.valor) + '</td><td>' + linkOuTraco('del-sai', s.id) + '</td></tr>';
+      const origem = s.origem === 'erp-import' ? ' <span class="badge-novo" style="background:#1e3a8a;color:#93c5fd;">ERP</span>' : '';
+      return '<tr><td>' + fmtData(s.data) + '</td><td class="code">' + fmtCodigo(s.codigo) + '</td><td>' + escHtml(p ? p.item : '—') + origem + '</td><td><span class="pill ' + di.pill + '">' + di.label + '</span></td><td class="num">' + fmtNum(s.quantidade) + '</td><td class="num">' + fmtBRL(s.valor) + '</td><td class="num">' + fmtBRL(s.quantidade * s.valor) + '</td><td>' + linkOuTraco('del-sai', s.id) + '</td></tr>';
     }).join('') : '<tr><td colspan="8" class="empty">Nenhuma saída registrada.</td></tr>';
     tbA.innerHTML = ajs.length ? ajs.map(a => {
       const p = produtos.find(p => p.codigo === a.codigo);
@@ -1584,6 +1651,215 @@
     popularConfigForm();
     refreshAll();
     carregarUsuarios();
+    renderErpSaidas();
+  }
+
+  const KEY_IMPORT_MAP = 'estoque:importMap';
+  let importHeaders = [];
+  let importRows = [];
+
+  const COL_HINTS = {
+    sku: ['sku', 'codigo sku', 'código sku', 'cod sku', 'código de barras', 'codigo de barras', 'item', 'produto', 'codigo produto', 'código do produto'],
+    quantidade: ['quantidade', 'qtd', 'qtde', 'qt', 'qtd vendida', 'quantidade vendida'],
+    valor: ['valor unitario', 'valor unitário', 'preco unitario', 'preço unitário', 'valor', 'preco', 'preço', 'preco unit', 'valor unit'],
+    data: ['data', 'data venda', 'data da venda', 'data emissao', 'data emissão', 'data pedido', 'data do pedido'],
+    externalId: ['numero do pedido', 'número do pedido', 'numero pedido', 'número pedido', 'pedido', 'id pedido', 'codigo pedido', 'código pedido', 'nro pedido', 'nº pedido'],
+  };
+
+  function autoDetect(headers, hints) {
+    const norm = h => String(h || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    for (const h of hints) {
+      const idx = headers.findIndex(x => norm(x) === norm(h));
+      if (idx !== -1) return idx;
+    }
+    for (const h of hints) {
+      const idx = headers.findIndex(x => norm(x).includes(norm(h)));
+      if (idx !== -1) return idx;
+    }
+    return -1;
+  }
+
+  function parseCSV(text) {
+    const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim().length > 0);
+    if (lines.length === 0) return { headers: [], rows: [] };
+    const sep = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ';' : ',';
+    const splitLine = (line) => {
+      const out = []; let cur = ''; let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') {
+          if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+          else inQ = !inQ;
+        } else if (c === sep && !inQ) {
+          out.push(cur); cur = '';
+        } else cur += c;
+      }
+      out.push(cur);
+      return out;
+    };
+    const headers = splitLine(lines[0]).map(s => s.trim());
+    const rows = lines.slice(1).map(splitLine);
+    return { headers, rows };
+  }
+
+  function parseValorBR(v) {
+    if (v == null || v === '') return NaN;
+    if (typeof v === 'number') return v;
+    let s = String(v).trim().replace(/^R\$\s*/i, '');
+    if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
+    else if (s.includes(',')) s = s.replace(',', '.');
+    return parseFloat(s);
+  }
+
+  function parseDataBR(v) {
+    if (!v) return '';
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    const s = String(v).trim();
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return m[1] + '-' + m[2] + '-' + m[3];
+    m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (m) {
+      const dd = m[1].padStart(2, '0');
+      const mm = m[2].padStart(2, '0');
+      return m[3] + '-' + mm + '-' + dd;
+    }
+    const n = parseFloat(s);
+    if (Number.isFinite(n) && n > 25000 && n < 80000) {
+      const epoch = new Date(Date.UTC(1899, 11, 30));
+      const d = new Date(epoch.getTime() + n * 86400000);
+      return d.toISOString().slice(0, 10);
+    }
+    return '';
+  }
+
+  function popularSelectColuna(selectId, headers, autoIdx, allowEmpty) {
+    const sel = document.getElementById(selectId);
+    let html = allowEmpty ? '<option value="">— sem coluna —</option>' : '';
+    headers.forEach((h, i) => {
+      html += '<option value="' + i + '">' + escHtml(h || '(coluna ' + (i + 1) + ')') + '</option>';
+    });
+    sel.innerHTML = html;
+    if (autoIdx !== -1) sel.value = String(autoIdx);
+  }
+
+  document.getElementById('import-file').addEventListener('change', async (ev) => {
+    const file = ev.target.files[0];
+    if (!file) return;
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    document.getElementById('import-preview').style.display = 'none';
+    try {
+      let headers = [], rows = [];
+      if (ext === 'csv') {
+        const text = await file.text();
+        const r = parseCSV(text);
+        headers = r.headers; rows = r.rows;
+      } else if (ext === 'xlsx' || ext === 'xls') {
+        if (typeof XLSX === 'undefined') { toast('Biblioteca de Excel não carregou. Verifique a internet e recarregue a página.', 'error'); return; }
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+        if (aoa.length > 0) { headers = aoa[0]; rows = aoa.slice(1); }
+      } else {
+        toast('Formato não suportado. Use .csv, .xlsx ou .xls.', 'error');
+        return;
+      }
+      if (headers.length === 0) { toast('Arquivo vazio ou sem cabeçalho.', 'error'); return; }
+      importHeaders = headers;
+      importRows = rows;
+      const saved = loadJson(KEY_IMPORT_MAP, {});
+      ['sku','quantidade','valor','data','externalId'].forEach(k => {
+        const auto = saved[k] !== undefined ? saved[k] : autoDetect(headers, COL_HINTS[k]);
+        popularSelectColuna('map-' + k, headers, auto, k === 'externalId');
+      });
+      if (saved.destino) document.getElementById('map-destino').value = saved.destino;
+      document.getElementById('import-mapping').style.display = 'block';
+      toast(rows.length + ' linhas detectadas. Confirme o mapeamento.');
+    } catch (err) {
+      toast('Erro ao ler arquivo: ' + err.message, 'error');
+    }
+  });
+
+  function montarLinhas() {
+    const idxSku = parseInt(document.getElementById('map-sku').value);
+    const idxQtd = parseInt(document.getElementById('map-quantidade').value);
+    const idxVal = parseInt(document.getElementById('map-valor').value);
+    const idxData = parseInt(document.getElementById('map-data').value);
+    const idxExt = document.getElementById('map-externalId').value === '' ? -1 : parseInt(document.getElementById('map-externalId').value);
+    const destino = document.getElementById('map-destino').value;
+    saveJson(KEY_IMPORT_MAP, { sku: idxSku, quantidade: idxQtd, valor: idxVal, data: idxData, externalId: idxExt, destino });
+    return importRows.filter(r => r.some(c => c !== '' && c != null)).map(r => ({
+      sku: r[idxSku],
+      quantidade: parseInt(String(r[idxQtd] || '').replace(/[^\d-]/g, ''), 10),
+      valor: parseValorBR(r[idxVal]),
+      data: parseDataBR(r[idxData]),
+      externalId: idxExt >= 0 ? String(r[idxExt] || '').trim() : '',
+      destino,
+    }));
+  }
+
+  document.getElementById('btn-import-preview').addEventListener('click', async () => {
+    if (!isAdmin()) { toast('Acesso restrito.', 'error'); return; }
+    if (importRows.length === 0) { toast('Selecione um arquivo primeiro.', 'error'); return; }
+    const linhas = montarLinhas();
+    try {
+      const r = await api('POST', '/api/integracao/importar', { rows: linhas, dryRun: true });
+      const div = document.getElementById('import-preview');
+      let html = '<div class="info-box" style="background: var(--bg-soft); flex-direction: column; align-items: stretch;">';
+      html += '<div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom: 8px;">';
+      html += '<span>✅ Criar: <strong>' + r.criadas + '</strong></span>';
+      html += '<span>🔁 Duplicadas: <strong>' + r.duplicadas + '</strong></span>';
+      html += '<span>❓ SKU não encontrado: <strong>' + r.naoMapeadas + '</strong></span>';
+      html += '<span>⚠️ Inválidas: <strong>' + r.invalidas + '</strong></span>';
+      html += '</div>';
+      if (r.problemas.length > 0) {
+        html += '<details style="margin-top:8px;"><summary>Ver ' + r.problemas.length + ' problemas detectados</summary>';
+        html += '<div style="max-height: 220px; overflow-y: auto; margin-top: 8px; font-size: 12px;">';
+        r.problemas.slice(0, 200).forEach(p => {
+          html += '<div style="padding: 4px 0; border-bottom: 1px solid var(--border);">Linha ' + (p.linha + 1) + ': ' + escHtml(p.motivo) + '</div>';
+        });
+        if (r.problemas.length > 200) html += '<div style="padding: 4px 0; color: var(--text-mute);">... mais ' + (r.problemas.length - 200) + '</div>';
+        html += '</div></details>';
+      }
+      html += '</div>';
+      if (r.criadas > 0) {
+        html += '<button type="button" id="btn-import-confirmar" class="primary" style="margin-top: 12px;">Confirmar importação de ' + r.criadas + ' venda(s)</button>';
+      } else {
+        html += '<p class="helper" style="margin-top: 12px;">Nenhuma venda válida para importar.</p>';
+      }
+      div.innerHTML = html;
+      div.style.display = 'block';
+      const btnConf = document.getElementById('btn-import-confirmar');
+      if (btnConf) btnConf.addEventListener('click', confirmarImportacao);
+    } catch (ex) { toast(ex.message, 'error'); }
+  });
+
+  async function confirmarImportacao() {
+    const linhas = montarLinhas();
+    try {
+      const r = await api('POST', '/api/integracao/importar', { rows: linhas, dryRun: false });
+      toast(r.criadas + ' venda(s) importada(s) com sucesso.');
+      document.getElementById('import-preview').style.display = 'none';
+      document.getElementById('import-mapping').style.display = 'none';
+      document.getElementById('import-file').value = '';
+      importHeaders = []; importRows = [];
+    } catch (ex) { toast(ex.message, 'error'); }
+  }
+
+  function renderErpSaidas() {
+    const tb = document.querySelector('#tbl-erp-saidas tbody');
+    if (!tb) return;
+    const erpSaidas = saidas.filter(s => s.origem === 'erp-import')
+      .sort((a, b) => (b.data || '').localeCompare(a.data || '') || b.id.localeCompare(a.id))
+      .slice(0, 100);
+    if (erpSaidas.length === 0) {
+      tb.innerHTML = '<tr><td colspan="6" class="empty">Nenhuma saída via ERP ainda.</td></tr>';
+      return;
+    }
+    tb.innerHTML = erpSaidas.map(s => {
+      const p = produtos.find(p => p.codigo === s.codigo);
+      return '<tr><td>' + fmtData(s.data) + '</td><td class="code">' + fmtCodigo(s.codigo) + '</td><td>' + escHtml(p ? p.item : '—') + '</td><td class="num">' + fmtNum(s.quantidade) + '</td><td class="num">' + fmtBRL(s.valor) + '</td><td>' + escHtml(s.externalId || '—') + '</td></tr>';
+    }).join('');
   }
 
   async function ensureCatalogoSeed() {
@@ -1811,11 +2087,12 @@
   document.getElementById('fifo-prod').addEventListener('change', renderFIFO);
 
   function navigate(view) {
-    if ((view === 'config' || view === 'usuarios') && !isAdmin()) {
+    if ((view === 'config' || view === 'usuarios' || view === 'integracoes') && !isAdmin()) {
       toast('Acesso restrito a administradores.', 'error');
       return;
     }
     if (view === 'usuarios') carregarUsuarios();
+    if (view === 'integracoes') renderErpSaidas();
     document.querySelectorAll('.app-section').forEach(s => s.classList.remove('active'));
     const target = document.getElementById('view-' + view);
     if (target) target.classList.add('active');

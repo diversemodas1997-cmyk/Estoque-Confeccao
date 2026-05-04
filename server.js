@@ -318,6 +318,74 @@ app.delete('/api/entrada/:id', authMiddleware, adminOnly, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res) => {
+  const b = req.body || {};
+  const rows = Array.isArray(b.rows) ? b.rows : null;
+  const dryRun = !!b.dryRun;
+  if (!rows) return res.status(400).json({ error: 'Lista de linhas ausente.' });
+  if (rows.length === 0) return res.status(400).json({ error: 'Nenhuma linha para importar.' });
+  if (rows.length > 5000) return res.status(400).json({ error: 'Limite de 5000 linhas por importação.' });
+
+  function normSku(s) { return String(s || '').toUpperCase().replace(/\s+/g, '').trim(); }
+  const skuIndex = new Map();
+  for (const p of state.produtos) {
+    const skuKey = normSku(p.sku || p.item);
+    if (skuKey) skuIndex.set(skuKey, p);
+  }
+  const externalIdsExistentes = new Set();
+  for (const s of state.saidas) if (s.externalId) externalIdsExistentes.add(String(s.externalId));
+
+  const result = { criadas: 0, duplicadas: 0, naoMapeadas: 0, invalidas: 0, problemas: [] };
+  const novasSaidas = [];
+  const externalIdsLote = new Set();
+
+  rows.forEach((row, i) => {
+    const linha = i + 1;
+    const sku = normSku(row.sku);
+    const quantidade = parseInt(row.quantidade, 10);
+    const valor = parseFloat(row.valor);
+    const data = asStr(row.data);
+    const externalId = asStr(row.externalId);
+    const destino = DESTINOS_VALIDOS.has(asStr(row.destino)) ? asStr(row.destino) : 'cliente';
+
+    if (!sku) { result.invalidas++; result.problemas.push({ linha, motivo: 'SKU vazio' }); return; }
+    if (!Number.isFinite(quantidade) || quantidade <= 0) { result.invalidas++; result.problemas.push({ linha, motivo: 'Quantidade inválida (' + row.quantidade + ')' }); return; }
+    if (!Number.isFinite(valor) || valor < 0) { result.invalidas++; result.problemas.push({ linha, motivo: 'Valor inválido (' + row.valor + ')' }); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) { result.invalidas++; result.problemas.push({ linha, motivo: 'Data inválida (' + row.data + ', use YYYY-MM-DD)' }); return; }
+
+    const produto = skuIndex.get(sku);
+    if (!produto) { result.naoMapeadas++; result.problemas.push({ linha, motivo: 'SKU "' + sku + '" não encontrado nos produtos' }); return; }
+
+    if (externalId) {
+      if (externalIdsExistentes.has(externalId) || externalIdsLote.has(externalId)) {
+        result.duplicadas++;
+        result.problemas.push({ linha, motivo: 'Pedido ' + externalId + ' já importado anteriormente' });
+        return;
+      }
+      externalIdsLote.add(externalId);
+    }
+
+    novasSaidas.push({
+      id: uid(),
+      codigo: produto.codigo,
+      data,
+      quantidade,
+      valor,
+      destino,
+      origem: 'erp-import',
+      externalId: externalId || null,
+    });
+    result.criadas++;
+  });
+
+  if (!dryRun && novasSaidas.length > 0) {
+    state.saidas.push(...novasSaidas);
+    await persist();
+    broadcast();
+  }
+  res.json(result);
+});
+
 app.post('/api/saida', authMiddleware, async (req, res) => {
   const b = req.body || {};
   const codigo = asInt(b.codigo);
