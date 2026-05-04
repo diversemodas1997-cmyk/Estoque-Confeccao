@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: estoque-confeccao
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: STORAGE_DIR
+        value: /var/data
+    disk:
+      name: estoque-storage
+      mountPath: /var/data
+      sizeGB: 1

@@ -1,0 +1,16 @@
+{
+  "name": "estoque-confeccao",
+  "version": "2.0.0",
+  "description": "Controle de estoque multiusuário em tempo real para confecção.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

@@ -1,0 +1,184 @@
+================================================================
+  CONTROLE DE ESTOQUE — CONFECCAO DE ROUPAS
+  Versao 1.0
+================================================================
+
+O QUE E ESTE PROGRAMA
+---------------------
+Sistema completo de controle de estoque para confeccao, com:
+
+  - 91 produtos pre-cadastrados (camisetas Lisas e Tricolor)
+  - Cadastro de novos produtos
+  - Registro de entradas (compras/reposicao)
+  - Registro de saidas (vendas) com validacao de estoque
+  - Ajuste de inventario por contagem fisica
+  - Calculo automatico de CMP (Custo Medio Ponderado)
+  - Alerta de estoque minimo (saldo <= 5 unidades)
+  - Exportacao para CSV (abre no Excel)
+  - Backup completo dos dados em JSON
+  - Funciona 100% offline, sem precisar de internet
+
+================================================================
+  COMO INSTALAR
+================================================================
+
+1. Extraia o arquivo ZIP para a sua area de trabalho:
+   Clique com o botao direito no arquivo "EstoqueConfeccao.zip"
+   e selecione "Extrair tudo..." ou "Extract All...".
+
+2. Escolha o destino:
+   C:\Users\Pichau\Desktop
+
+   Ao terminar, voce tera uma pasta:
+   C:\Users\Pichau\Desktop\EstoqueConfeccao
+
+3. Abra a pasta e clique duas vezes em:
+
+   "abrir_programa.bat"   (caminho recomendado)
+   ou
+   "index.html"           (abre direto no navegador)
+
+   O programa abrira no seu navegador padrao
+   (Chrome, Edge ou Firefox).
+
+4. Pronto! Pode comecar a usar.
+
+================================================================
+  CRIAR ATALHO NA AREA DE TRABALHO (OPCIONAL)
+================================================================
+
+Para abrir o programa com um clique direto na area de trabalho:
+
+  1. Clique com o botao direito em "abrir_programa.bat"
+  2. Selecione "Enviar para" -> "Area de trabalho (criar atalho)"
+  3. Renomeie o atalho para "Controle de Estoque"
+  4. (Opcional) Botao direito no atalho -> Propriedades ->
+     Alterar icone, e escolha um icone de sua preferencia
+
+================================================================
+  ONDE OS DADOS SAO SALVOS
+================================================================
+
+O programa usa o armazenamento local do seu navegador
+(chamado "localStorage"). Isso significa que:
+
+  - Os dados ficam salvos no SEU computador
+  - Nao precisa de internet
+  - Nao precisa de servidor
+  - Nao precisa de banco de dados
+
+IMPORTANTE: os dados ficam vinculados ao navegador que voce usar.
+Se abrir no Chrome e depois no Edge, cada um tera seus proprios
+dados separados. Use sempre o mesmo navegador.
+
+================================================================
+  COMO USAR — PASSO A PASSO
+================================================================
+
+REGISTRAR UMA ENTRADA (compra ou producao):
+
+  1. Va para a secao "Registrar entrada"
+  2. Selecione o produto na lista
+  3. Informe a data
+  4. Informe a quantidade que entrou
+  5. Informe o custo unitario (quanto custou cada peca)
+  6. Clique em "+ Registrar entrada"
+
+REGISTRAR UMA SAIDA (venda):
+
+  1. Va para a secao "Registrar saida"
+  2. Selecione o produto
+  3. Informe a data, a quantidade vendida e o valor de venda
+  4. Clique em "- Registrar saida"
+  5. Se nao houver estoque suficiente, o sistema avisa
+
+AJUSTAR O ESTOQUE (contagem fisica):
+
+  1. Conte fisicamente as pecas no estoque
+  2. Va para a secao "Ajuste de inventario"
+  3. Selecione o produto - o sistema mostra o saldo atual
+  4. Digite a quantidade que voce realmente contou
+  5. O sistema mostra a diferenca em verde (sobrou)
+     ou vermelho (faltou)
+  6. (Opcional) Escreva um motivo: "perda", "dano", etc.
+  7. Clique em "Registrar ajuste"
+  8. O saldo do estoque sera corrigido automaticamente
+
+CADASTRAR UM PRODUTO NOVO:
+
+  1. Va para "Cadastrar novo produto"
+  2. O codigo ja vem sugerido (proximo disponivel)
+  3. Preencha o nome e o preco base
+  4. Tipo, cor e tamanho sao opcionais (ajudam nos filtros)
+  5. Clique em "+ Cadastrar produto"
+
+================================================================
+  BACKUP E SEGURANCA
+================================================================
+
+FACA BACKUP REGULARMENTE!
+
+Para gerar um backup completo dos seus dados:
+
+  1. Clique no botao "Backup completo" no topo da tela
+  2. Um arquivo "backup_estoque_AAAA-MM-DD.json" sera baixado
+  3. Guarde esse arquivo em local seguro
+     (pendrive, Google Drive, OneDrive, etc.)
+
+Para restaurar um backup:
+
+  1. Clique em "Restaurar backup"
+  2. Selecione o arquivo JSON salvo anteriormente
+  3. Confirme a restauracao
+
+RECOMENDACAO: faca backup pelo menos uma vez por semana
+ou apos registrar muitas movimentacoes.
+
+================================================================
+  EXPORTAR PARA EXCEL
+================================================================
+
+Para gerar uma planilha com a posicao atual do estoque:
+
+  1. Clique no botao "Exportar CSV" no topo da tela
+  2. Sera baixado o arquivo "estoque_AAAA-MM-DD.csv"
+  3. Abra esse arquivo no Excel - ele tem todas as colunas:
+     codigo, item, tipo, entradas, saidas, ajustes,
+     estoque atual, CMP, valor em estoque e status
+
+================================================================
+  PERGUNTAS FREQUENTES
+================================================================
+
+P: O programa precisa de internet?
+R: Nao. Funciona 100% offline.
+
+P: Posso usar em mais de um computador?
+R: Sim, mas os dados nao sincronizam automaticamente. Para isso,
+   gere um backup em um computador e restaure no outro.
+
+P: E se eu apagar o navegador ou limpar o cache?
+R: Os dados podem ser perdidos. Por isso, faca backups regulares.
+
+P: Posso editar um produto ja cadastrado?
+R: Os produtos personalizados podem ser excluidos (se nao tiverem
+   movimentacoes) e cadastrados novamente. Os 91 produtos
+   pre-cadastrados nao podem ser excluidos para preservar a base.
+
+P: O que e CMP?
+R: Custo Medio Ponderado. E a media do custo de todas as entradas
+   de um produto, ponderada pela quantidade. Usado para calcular
+   o valor real do estoque.
+
+P: Posso mudar o limite de estoque minimo?
+R: Atualmente esta fixo em 5 unidades. Para mudar, edite o
+   arquivo index.html e altere a linha "const ESTOQUE_MIN = 5;"
+
+================================================================
+  SUPORTE
+================================================================
+
+Em caso de duvidas ou problemas, entre em contato com o
+desenvolvedor que forneceu este programa.
+
+================================================================

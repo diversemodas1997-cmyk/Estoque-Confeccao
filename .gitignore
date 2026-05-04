@@ -1,0 +1,12 @@
+node_modules/
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.env
+
+# Claude Code working files
+.claude/
+
+# Dados locais e backups (recriados em runtime)
+data/
+backups/
