@@ -819,26 +819,28 @@
         <p class="helper" style="margin-top:0;">Confirme qual coluna do arquivo corresponde a cada campo. As detecções automáticas estão pré-selecionadas.</p>
         <div class="form-grid-cad-1">
           <div>
-            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">SKU *</label>
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">SKU principal *</label>
             <select id="map-sku"></select>
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Variação (opcional, anexa ao SKU)</label>
+            <select id="map-variacao"></select>
           </div>
           <div>
             <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Quantidade *</label>
             <select id="map-quantidade"></select>
           </div>
-          <div>
-            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Valor unitário *</label>
-            <select id="map-valor"></select>
-          </div>
         </div>
         <div class="form-grid-cad-2">
           <div>
-            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Data *</label>
-            <select id="map-data"></select>
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Valor *</label>
+            <select id="map-valor"></select>
           </div>
-          <div>
-            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Nº do pedido (anti-duplicata)</label>
-            <select id="map-externalId"></select>
+          <div style="display: flex; align-items: end; padding-bottom: 8px;">
+            <label style="font-size:12px; color:var(--text-soft); display:flex; align-items:center; gap:6px; cursor:pointer;">
+              <input type="checkbox" id="map-valor-total" style="width: auto;">
+              Esta coluna é o <strong>TOTAL</strong> (dividir por quantidade)
+            </label>
           </div>
           <div>
             <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Destino</label>
@@ -848,6 +850,20 @@
               <option value="devolucao">Devolução</option>
               <option value="defeitos">Defeitos</option>
             </select>
+          </div>
+        </div>
+        <div class="form-grid-cad-2">
+          <div>
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Data *</label>
+            <select id="map-data"></select>
+          </div>
+          <div id="map-data-fixa-wrap" style="display: none;">
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Data fixa para todas as linhas</label>
+            <input type="date" id="map-data-fixa">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Nº do pedido (anti-duplicata)</label>
+            <select id="map-externalId"></select>
           </div>
         </div>
         <button type="button" id="btn-import-preview" class="primary" style="margin-top: 12px;">Pré-visualizar importação</button>
@@ -1659,12 +1675,14 @@
   let importRows = [];
 
   const COL_HINTS = {
-    sku: ['sku', 'codigo sku', 'código sku', 'cod sku', 'código de barras', 'codigo de barras', 'item', 'produto', 'codigo produto', 'código do produto'],
-    quantidade: ['quantidade', 'qtd', 'qtde', 'qt', 'qtd vendida', 'quantidade vendida'],
-    valor: ['valor unitario', 'valor unitário', 'preco unitario', 'preço unitário', 'valor', 'preco', 'preço', 'preco unit', 'valor unit'],
+    sku: ['sku', 'codigo sku', 'código sku', 'cod sku', 'código de barras', 'codigo de barras', 'item', 'codigo produto', 'código do produto', 'cod.produto', 'cód.produto', 'código produto'],
+    variacao: ['variacao', 'variação', 'var', 'variante', 'variant', 'tamanho', 'cor/tamanho'],
+    quantidade: ['quantidade', 'qtd', 'qtde', 'qt', 'qtd vendida', 'quantidade vendida', 'quant', 'quant.'],
+    valor: ['valor unitario', 'valor unitário', 'preco unitario', 'preço unitário', 'valor', 'preco', 'preço', 'preco unit', 'valor unit', 'total', 'valor total', 'subtotal'],
     data: ['data', 'data venda', 'data da venda', 'data emissao', 'data emissão', 'data pedido', 'data do pedido'],
     externalId: ['numero do pedido', 'número do pedido', 'numero pedido', 'número pedido', 'pedido', 'id pedido', 'codigo pedido', 'código pedido', 'nro pedido', 'nº pedido'],
   };
+  const VALOR_TOTAL_HINTS = ['total', 'valor total', 'subtotal'];
 
   function autoDetect(headers, hints) {
     const norm = h => String(h || '').toLowerCase().trim().replace(/\s+/g, ' ');
@@ -1739,7 +1757,24 @@
       html += '<option value="' + i + '">' + escHtml(h || '(coluna ' + (i + 1) + ')') + '</option>';
     });
     sel.innerHTML = html;
-    if (autoIdx !== -1) sel.value = String(autoIdx);
+    if (autoIdx !== -1 && autoIdx !== undefined && autoIdx !== null && autoIdx !== '') sel.value = String(autoIdx);
+    else if (allowEmpty) sel.value = '';
+  }
+
+  function popularSelectColunaComFixa(selectId, headers, autoIdx) {
+    const sel = document.getElementById(selectId);
+    let html = '<option value="__FIXA__">— usar data fixa abaixo —</option>';
+    headers.forEach((h, i) => {
+      html += '<option value="' + i + '">' + escHtml(h || '(coluna ' + (i + 1) + ')') + '</option>';
+    });
+    sel.innerHTML = html;
+    if (autoIdx !== -1 && autoIdx !== undefined && autoIdx !== null && autoIdx !== '') sel.value = String(autoIdx);
+    else sel.value = '__FIXA__';
+  }
+
+  function atualizarVisibilidadeDataFixa() {
+    const v = document.getElementById('map-data').value;
+    document.getElementById('map-data-fixa-wrap').style.display = v === '__FIXA__' ? 'block' : 'none';
   }
 
   document.getElementById('import-file').addEventListener('change', async (ev) => {
@@ -1768,12 +1803,22 @@
       importHeaders = headers;
       importRows = rows;
       const saved = loadJson(KEY_IMPORT_MAP, {});
-      ['sku','quantidade','valor','data','externalId'].forEach(k => {
+      ['sku','variacao','quantidade','valor','externalId'].forEach(k => {
         const auto = saved[k] !== undefined ? saved[k] : autoDetect(headers, COL_HINTS[k]);
-        popularSelectColuna('map-' + k, headers, auto, k === 'externalId');
+        popularSelectColuna('map-' + k, headers, auto, k === 'externalId' || k === 'variacao');
       });
+      const dataAutoIdx = saved.data !== undefined ? saved.data : autoDetect(headers, COL_HINTS.data);
+      popularSelectColunaComFixa('map-data', headers, dataAutoIdx);
+      const valorIdx = parseInt(document.getElementById('map-valor').value);
+      const valorTotalAuto = saved.valorTotal !== undefined ? saved.valorTotal :
+        (valorIdx >= 0 && VALOR_TOTAL_HINTS.some(h => String(headers[valorIdx] || '').toLowerCase().includes(h)));
+      document.getElementById('map-valor-total').checked = !!valorTotalAuto;
+      atualizarVisibilidadeDataFixa();
+      if (saved.dataFixa) document.getElementById('map-data-fixa').value = saved.dataFixa;
+      else document.getElementById('map-data-fixa').value = new Date().toISOString().slice(0, 10);
       if (saved.destino) document.getElementById('map-destino').value = saved.destino;
       document.getElementById('import-mapping').style.display = 'block';
+      document.getElementById('import-preview').style.display = 'none';
       toast(rows.length + ' linhas detectadas. Confirme o mapeamento.');
     } catch (err) {
       toast('Erro ao ler arquivo: ' + err.message, 'error');
@@ -1782,21 +1827,51 @@
 
   function montarLinhas() {
     const idxSku = parseInt(document.getElementById('map-sku').value);
+    const varRaw = document.getElementById('map-variacao').value;
+    const idxVar = varRaw === '' ? -1 : parseInt(varRaw);
     const idxQtd = parseInt(document.getElementById('map-quantidade').value);
     const idxVal = parseInt(document.getElementById('map-valor').value);
-    const idxData = parseInt(document.getElementById('map-data').value);
-    const idxExt = document.getElementById('map-externalId').value === '' ? -1 : parseInt(document.getElementById('map-externalId').value);
+    const valorTotal = document.getElementById('map-valor-total').checked;
+    const dataRaw = document.getElementById('map-data').value;
+    const usarDataFixa = dataRaw === '__FIXA__';
+    const idxData = usarDataFixa ? -1 : parseInt(dataRaw);
+    const dataFixa = document.getElementById('map-data-fixa').value;
+    const extRaw = document.getElementById('map-externalId').value;
+    const idxExt = extRaw === '' ? -1 : parseInt(extRaw);
     const destino = document.getElementById('map-destino').value;
-    saveJson(KEY_IMPORT_MAP, { sku: idxSku, quantidade: idxQtd, valor: idxVal, data: idxData, externalId: idxExt, destino });
-    return importRows.filter(r => r.some(c => c !== '' && c != null)).map(r => ({
-      sku: r[idxSku],
-      quantidade: parseInt(String(r[idxQtd] || '').replace(/[^\d-]/g, ''), 10),
-      valor: parseValorBR(r[idxVal]),
-      data: parseDataBR(r[idxData]),
-      externalId: idxExt >= 0 ? String(r[idxExt] || '').trim() : '',
-      destino,
-    }));
+    saveJson(KEY_IMPORT_MAP, {
+      sku: idxSku, variacao: idxVar, quantidade: idxQtd, valor: idxVal, valorTotal,
+      data: usarDataFixa ? '__FIXA__' : idxData, dataFixa, externalId: idxExt, destino,
+    });
+    function normSku(s) { return String(s || '').toUpperCase().replace(/\s+/g, '').trim(); }
+    return importRows
+      .filter(r => r.some(c => c !== '' && c != null))
+      .map((r, i) => {
+        const skuPrim = String(r[idxSku] || '').trim();
+        const skuVar = idxVar >= 0 ? String(r[idxVar] || '').trim() : '';
+        const skuFinal = skuVar ? (skuPrim + '-' + skuVar) : skuPrim;
+        const qtdNum = parseInt(String(r[idxQtd] || '').replace(/[^\d-]/g, ''), 10);
+        const valorBruto = parseValorBR(r[idxVal]);
+        const valorUnit = (valorTotal && Number.isFinite(qtdNum) && qtdNum > 0)
+          ? (Number.isFinite(valorBruto) ? valorBruto / qtdNum : NaN)
+          : valorBruto;
+        const dataFinal = usarDataFixa ? dataFixa : parseDataBR(r[idxData]);
+        let externalId = idxExt >= 0 ? String(r[idxExt] || '').trim() : '';
+        if (!externalId && dataFinal && skuFinal) {
+          externalId = 'auto-' + dataFinal + '-' + normSku(skuFinal);
+        }
+        return {
+          sku: skuFinal,
+          quantidade: qtdNum,
+          valor: valorUnit,
+          data: dataFinal,
+          externalId,
+          destino,
+        };
+      });
   }
+
+  document.getElementById('map-data').addEventListener('change', atualizarVisibilidadeDataFixa);
 
   document.getElementById('btn-import-preview').addEventListener('click', async () => {
     if (!isAdmin()) { toast('Acesso restrito.', 'error'); return; }
