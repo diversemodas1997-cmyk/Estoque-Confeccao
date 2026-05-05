@@ -14,6 +14,9 @@ const DATA_DIR = path.join(STORAGE_DIR, 'data');
 const BACKUP_DIR = path.join(STORAGE_DIR, 'backups');
 const STATE_FILE = path.join(DATA_DIR, 'estoque.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+// Backup "ao vivo" na pasta do programa, sobrescrito a cada modificação. Disponivel
+// também no disco persistente do Render (mesmo arquivo, na raiz do servico).
+const LIVE_BACKUP_FILE = path.join(ROOT, 'backup_atual.json');
 
 const DEFAULT_USERS = [
   { username: 'admin', password: 'admin', role: 'admin' },
@@ -457,6 +460,14 @@ function persist() {
     await fsp.writeFile(tmp, json, 'utf8');
     await fsp.rename(tmp, STATE_FILE);
     await writeBackup(json);
+    // Backup "ao vivo" na raiz da pasta do programa (escrita atômica)
+    try {
+      const tmpLive = LIVE_BACKUP_FILE + '.tmp';
+      await fsp.writeFile(tmpLive, json, 'utf8');
+      await fsp.rename(tmpLive, LIVE_BACKUP_FILE);
+    } catch (err) {
+      console.error('[persist live backup] erro:', err.message);
+    }
     // Escreve users.json em separado (isolado de migrações de produtos/ajustes)
     try {
       const usersJson = JSON.stringify(state.users || [], null, 2);

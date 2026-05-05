@@ -13,3 +13,6 @@ backups/
 
 # Relatórios do ERP (binários, podem conter dados sensíveis)
 *.pdf
+
+# Backup "ao vivo" gerado automaticamente a cada modificação
+backup_atual.json
