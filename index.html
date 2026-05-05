@@ -233,6 +233,32 @@
   @media (max-width: 700px) {
     .form-grid-4, .form-grid-3, .form-grid-cad-1, .form-grid-cad-2 { grid-template-columns: 1fr 1fr; }
   }
+  .tamanhos-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .tamanhos-checks label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-soft);
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .tamanhos-checks label.checked {
+    border-color: var(--accent, #3b82f6);
+    background: rgba(59, 130, 246, 0.08);
+  }
+  .tamanhos-checks input[type=checkbox] {
+    width: auto;
+    margin: 0;
+  }
   .table-wrap {
     overflow-x: auto;
     border: 1px solid var(--border);
@@ -664,7 +690,9 @@
             <tr>
               <th>Código</th>
               <th>Item</th>
+              <th>Tam.</th>
               <th class="num">Contagem</th>
+              <th>Data da contagem</th>
               <th class="num">Entradas</th>
               <th class="num">Saídas</th>
               <th class="num">Estoque</th>
@@ -686,9 +714,12 @@
         <h2>Registrar entrada (compra/reposição)</h2>
         <p class="helper">Use para registrar produção interna ou compra de fornecedores.</p>
         <form id="form-entrada">
-          <div class="form-grid-4">
+          <div class="form-grid-cad-1">
             <select name="codigo" required></select>
+            <select name="tamanho" required></select>
             <input type="date" name="data" required>
+          </div>
+          <div class="form-grid-cad-2">
             <input type="number" name="quantidade" placeholder="Quantidade" min="1" step="1" required>
             <input type="number" name="custo" placeholder="Custo unit." min="0" step="0.01" required>
           </div>
@@ -700,14 +731,17 @@
         <h2>Registrar saída</h2>
         <p class="helper">Escolha o destino da saída. O sistema valida estoque disponível antes de aceitar.</p>
         <form id="form-saida">
-          <div class="form-grid-saida">
+          <div class="form-grid-cad-1">
             <select name="codigo" required></select>
+            <select name="tamanho" required></select>
             <select name="destino" required>
               <option value="cliente">Estoque → Cliente</option>
               <option value="cancelamento">Estoque → Cancelamento</option>
               <option value="devolucao">Estoque → Devolução</option>
               <option value="defeitos">Estoque → Defeitos</option>
             </select>
+          </div>
+          <div class="form-grid-cad-1">
             <input type="date" name="data" required>
             <input type="number" name="quantidade" placeholder="Quantidade" min="1" step="1" required>
             <input type="number" name="valor" placeholder="Valor unit." min="0" step="0.01" required>
@@ -722,7 +756,7 @@
         <h2>Últimas entradas</h2>
         <div class="table-wrap" style="max-height: 420px;">
           <table id="tbl-entradas">
-            <thead><tr><th>Data</th><th>Cód.</th><th>Item</th><th class="num">Qtd</th><th class="num">Custo</th><th class="num">Total</th><th></th></tr></thead>
+            <thead><tr><th>Data</th><th>Cód.</th><th>Item</th><th>Tam.</th><th class="num">Qtd</th><th class="num">Custo</th><th class="num">Total</th><th></th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -732,7 +766,7 @@
         <h2>Últimas saídas</h2>
         <div class="table-wrap" style="max-height: 420px;">
           <table id="tbl-saidas">
-            <thead><tr><th>Data</th><th>Cód.</th><th>Item</th><th>Destino</th><th class="num">Qtd</th><th class="num">Valor</th><th class="num">Total</th><th></th></tr></thead>
+            <thead><tr><th>Data</th><th>Cód.</th><th>Item</th><th>Tam.</th><th>Destino</th><th class="num">Qtd</th><th class="num">Valor</th><th class="num">Total</th><th></th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -746,10 +780,14 @@
       <h2>Ajuste de inventário (contagem física)</h2>
       <p class="helper">Informe a quantidade contada no estoque real. O sistema calcula a diferença automaticamente.</p>
       <form id="form-ajuste">
-        <div class="form-grid-3">
+        <div class="form-grid-cad-1">
           <input type="date" name="data" required>
           <select name="codigo" required></select>
+          <select name="tamanho" required></select>
+        </div>
+        <div class="form-grid-cad-2">
           <input type="number" name="contado" placeholder="Qtd. contada" min="0" step="1" required>
+          <span></span>
         </div>
         <div id="aj-info" class="info-box">
           <span>Selecione um produto para ver o estoque atual.</span>
@@ -763,7 +801,7 @@
       <h2>Últimos ajustes de inventário</h2>
       <div class="table-wrap" style="max-height: 420px;">
         <table id="tbl-ajustes">
-          <thead><tr><th>Data</th><th>Cód.</th><th>Item</th><th class="num">Anterior</th><th class="num">Contado</th><th class="num">Diferença</th><th>Motivo</th><th></th></tr></thead>
+          <thead><tr><th>Data</th><th>Cód.</th><th>Item</th><th>Tam.</th><th class="num">Anterior</th><th class="num">Contado</th><th class="num">Diferença</th><th>Motivo</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -778,13 +816,16 @@
       <form id="form-produto">
         <div class="form-grid-cad-1">
           <input type="number" name="codigo" placeholder="Código" min="1" step="1" required>
-          <input type="text" name="item" placeholder="Nome (ex: CM.BÁSICA-VINHO-P)" required>
+          <input type="text" name="item" placeholder="Nome (ex: CM.LISA-VINHO)" required>
           <input type="number" name="preco" placeholder="Preço base" min="0" step="0.01" required>
         </div>
         <div class="form-grid-cad-2">
-          <input type="text" name="tipo" placeholder="Tipo (BÁSICA, TRI...)">
+          <input type="text" name="tipo" placeholder="Tipo (CM.LISA, BM.LISA...)">
           <input type="text" name="cor" placeholder="Cor">
-          <input type="text" name="tamanho" placeholder="Tamanho">
+        </div>
+        <div>
+          <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Tamanhos disponíveis *</label>
+          <div id="prod-tamanhos-checks" class="tamanhos-checks"></div>
         </div>
         <button type="submit" class="primary">+ Cadastrar produto</button>
       </form>
@@ -796,7 +837,7 @@
       <input type="search" id="f-search-prod" placeholder="🔍  Buscar por código ou nome..." style="margin-bottom: 10px;">
       <div class="table-wrap" style="max-height: 460px;">
         <table id="tbl-produtos">
-          <thead><tr><th>Código</th><th>Item</th><th>Tipo</th><th>Cor</th><th>Tamanho</th><th class="num">CMV</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Código</th><th>Item</th><th>Tipo</th><th>Cor</th><th>Tamanhos</th><th class="num">Preço base</th><th>Ações</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -806,64 +847,28 @@
   <section id="view-integracoes" class="app-section">
     <h2 class="section-title">Integrações</h2>
     <div class="card">
-      <h2>Importar vendas do ERP (CSV ou Excel)</h2>
-      <p class="helper">Exporte o relatório de vendas no seu ERP, escolha o arquivo abaixo e o sistema cria as saídas automaticamente. SKU é mapeado pelo nome do item (ou pelo campo SKU customizado do produto). Pedidos já importados são detectados e ignorados.</p>
+      <h2>Importar contagem do ERP</h2>
+      <p class="helper">Selecione o relatório do ERP (PDF, CSV ou Excel). O sistema lê <strong>código do produto</strong>, <strong>variação (tamanho)</strong> e <strong>quantidade contada</strong>, criando um ajuste de inventário por linha. Produtos não cadastrados são criados automaticamente seguindo o código do ERP. Importações são cumulativas.</p>
       <div class="form-grid-cad-2" style="align-items: end;">
         <div>
-          <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Arquivo (.csv, .xlsx, .xls)</label>
-          <input type="file" id="import-file" accept=".csv,.xlsx,.xls">
+          <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Arquivo (.pdf, .csv, .xlsx, .xls)</label>
+          <input type="file" id="import-file" accept=".pdf,.csv,.xlsx,.xls">
         </div>
         <div></div>
       </div>
-      <div id="import-mapping" style="display:none; margin-top: 16px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-soft);">
-        <p class="helper" style="margin-top:0;">Confirme qual coluna do arquivo corresponde a cada campo. As detecções automáticas estão pré-selecionadas.</p>
-        <div class="form-grid-cad-1">
-          <div>
-            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">SKU principal *</label>
-            <select id="map-sku"></select>
-          </div>
-          <div>
-            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Variação (opcional, anexa ao SKU)</label>
-            <select id="map-variacao"></select>
-          </div>
-          <div>
-            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Quantidade *</label>
-            <select id="map-quantidade"></select>
-          </div>
-        </div>
+      <div id="import-summary" style="display:none; margin-top: 16px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-soft);">
         <div class="form-grid-cad-2">
           <div>
-            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Valor *</label>
-            <select id="map-valor"></select>
-          </div>
-          <div style="display: flex; align-items: end; padding-bottom: 8px;">
-            <label style="font-size:12px; color:var(--text-soft); display:flex; align-items:center; gap:6px; cursor:pointer;">
-              <input type="checkbox" id="map-valor-total" style="width: auto;">
-              Esta coluna é o <strong>TOTAL</strong> (dividir por quantidade)
-            </label>
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Data da contagem *</label>
+            <input type="date" id="import-data-contagem">
           </div>
           <div>
-            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Destino</label>
-            <select id="map-destino">
-              <option value="cliente">Cliente (padrão)</option>
-              <option value="cancelamento">Cancelamento</option>
-              <option value="devolucao">Devolução</option>
-              <option value="defeitos">Defeitos</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-grid-cad-2">
-          <div>
-            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Data *</label>
-            <select id="map-data"></select>
-          </div>
-          <div id="map-data-fixa-wrap" style="display: none;">
-            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Data fixa para todas as linhas</label>
-            <input type="date" id="map-data-fixa">
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Data de emissão (do relatório)</label>
+            <input type="date" id="import-data-emissao" disabled>
           </div>
           <div>
-            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Nº do pedido (anti-duplicata)</label>
-            <select id="map-externalId"></select>
+            <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Linhas detectadas</label>
+            <input type="text" id="import-linhas-info" disabled>
           </div>
         </div>
         <button type="button" id="btn-import-preview" class="primary" style="margin-top: 12px;">Pré-visualizar importação</button>
@@ -872,11 +877,11 @@
     </div>
 
     <div class="card" style="margin-top: 18px;">
-      <h2>Histórico de saídas via ERP</h2>
-      <p class="helper">Últimas 100 saídas registradas via importação.</p>
+      <h2>Histórico de contagens importadas</h2>
+      <p class="helper">Últimas 100 contagens registradas via importação do ERP.</p>
       <div class="table-wrap" style="max-height: 420px;">
-        <table id="tbl-erp-saidas">
-          <thead><tr><th>Data</th><th>Cód.</th><th>Item</th><th class="num">Qtd</th><th class="num">Valor</th><th>Pedido</th></tr></thead>
+        <table id="tbl-erp-contagens">
+          <thead><tr><th>Data</th><th>Cód.</th><th>Item</th><th>Tam.</th><th class="num">Anterior</th><th class="num">Contado</th><th class="num">Diferença</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -942,7 +947,12 @@
     <h2 class="section-title">Relatório FIFO (PEPS)</h2>
     <div class="card">
       <p class="helper">Custo de cada saída calculado pelo método Primeiro a Entrar, Primeiro a Sair. Ajustes de inventário não entram no cálculo.</p>
-      <select id="fifo-prod" style="margin-bottom: 10px;"></select>
+      <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+        <select id="fifo-prod" style="flex: 2;"></select>
+        <select id="fifo-tam" style="flex: 1;">
+          <option value="">Todos os tamanhos</option>
+        </select>
+      </div>
       <div class="info-box">
         <span>Saldo qtd: <strong id="fifo-saldo-qtd">0</strong></span>
         <span>Saldo valor (PEPS): <strong id="fifo-saldo-val">R$ 0,00</strong></span>
@@ -997,7 +1007,7 @@
         <label>Nome do item</label>
         <input type="text" name="item" required>
       </div>
-      <div class="modal-row" style="grid-template-columns: 1fr 1fr 1fr;">
+      <div class="modal-row" style="grid-template-columns: 1fr 1fr;">
         <div class="modal-field">
           <label>Tipo</label>
           <input type="text" name="tipo">
@@ -1006,10 +1016,10 @@
           <label>Cor</label>
           <input type="text" name="cor">
         </div>
-        <div class="modal-field">
-          <label>Tamanho</label>
-          <input type="text" name="tamanho">
-        </div>
+      </div>
+      <div class="modal-field">
+        <label>Tamanhos disponíveis</label>
+        <div id="edit-tamanhos-checks" class="tamanhos-checks"></div>
       </div>
       <div class="modal-actions">
         <button type="button" class="ghost" data-close>Cancelar</button>
@@ -1078,6 +1088,12 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script>
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  }
+</script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
 (function() {
@@ -1195,83 +1211,82 @@
     'MOSTARDA': 'MOSTARDA', 'MAR': 'MARSALA', 'MARSALA': 'MARSALA',
     'MESCLA': 'MESCLA', 'AZUL': 'AZUL', 'CINZA': 'CINZA',
   };
-  const CATALOGO = [
-    { tipo: 'CM.LISA',       cores: ['MARINHO','BEGE','BRA','GRAF','MARROM','VERDE','VERM','ROXO'] },
-    { tipo: 'CM.TRI.LISA',   cores: ['VERDE','BRA','CAQUI','PRE'] },
-    { tipo: 'CM.REC.LISA',   cores: ['ROXO','PRE','VERDE','VERM'] },
-    { tipo: 'PM.LISA',       cores: ['AZUL','BEGE','BRA','PRE','ROXO'] },
-    { tipo: 'PM.TRI.LISA',   cores: ['PRE'] },
-    { tipo: 'BM.LISA',       cores: ['BEGE','BRA','MARROM','MOSTARDA','PRE','ROXO','VERDE','VERM'] },
-    { tipo: 'BM.TRI',        cores: ['AZUL','BEGE','VERDE'] },
-    { tipo: 'SM.LISA',       cores: ['MARINHO','BEGE','BRA','CINZA','MARROM','PRE'] },
-    { tipo: 'BERM',          cores: ['BRA','GRA','MAR','MESCLA','PRE'] },
-    { tipo: 'SF.BERM.FEM',   cores: ['MARINHO','PRE'] },
-    { tipo: 'CONJINF',       cores: ['GRAF','MARSALA','MESCLA'] },
+
+  // Mapa do ERP: 1 código por (tipo + cor). Tamanhos são variações.
+  // Cada produto-base ganha o código exato do ERP. Códigos não vistos no relatório
+  // ficam reservados para evitar colisão futura.
+  const ERP_CATALOGO = [
+    { codigo: 12, tipo: 'PM.LISA',     cor: 'PRE',     descricao: 'CAMISETA GOLA POLO PRETO' },
+    { codigo: 13, tipo: 'PM.LISA',     cor: 'BEGE',    descricao: 'CAMISETA GOLA POLO BEGE' },
+    { codigo: 14, tipo: 'PM.LISA',     cor: 'ROXO',    descricao: 'CAMISETA GOLA POLO ROXO' },
+    { codigo: 15, tipo: 'PM.LISA',     cor: 'BRA',     descricao: 'CAMISETA GOLA POLO BRANCO' },
+    { codigo: 16, tipo: 'PM.LISA',     cor: 'AZUL',    descricao: 'CAMISETA GOLA POLO AZUL' },
+    { codigo: 17, tipo: 'CM.LISA',     cor: 'PRE',     descricao: 'CAMISETA BÁSICA PRETO' },
+    { codigo: 18, tipo: 'CM.LISA',     cor: 'BEGE',    descricao: 'CAMISETA BÁSICA BEGE' },
+    { codigo: 19, tipo: 'CM.LISA',     cor: 'ROXO',    descricao: 'CAMISETA BÁSICA VIOLETA' },
+    { codigo: 20, tipo: 'CM.LISA',     cor: 'BRA',     descricao: 'CAMISETA BÁSICA BRANCO' },
+    { codigo: 21, tipo: 'CM.LISA',     cor: 'VERM',    descricao: 'CAMISETA BÁSICA VERMELHO' },
+    { codigo: 22, tipo: 'CM.LISA',     cor: 'VERDE',   descricao: 'CAMISETA BÁSICA VERDE' },
+    { codigo: 23, tipo: 'CM.LISA',     cor: 'GRAF',    descricao: 'CAMISETA BÁSICA GRAFITE' },
+    { codigo: 24, tipo: 'CM.LISA',     cor: 'MARINHO', descricao: 'CAMISETA BÁSICA AZUL MARINHO' },
+    { codigo: 25, tipo: 'CM.LISA',     cor: 'MARROM',  descricao: 'CAMISETA BÁSICA MARROM' },
+    { codigo: 26, tipo: 'CM.TRI.LISA', cor: 'CAQUI',   descricao: 'CAMISETA TRICOLOR CAQUI' },
+    { codigo: 27, tipo: 'SM.LISA',     cor: 'PRE',     descricao: 'BERMUDA TACTEL PRETO' },
+    { codigo: 28, tipo: 'SM.LISA',     cor: 'BEGE',    descricao: 'BERMUDA TACTEL BEGE' },
+    { codigo: 29, tipo: 'SM.LISA',     cor: 'CINZA',   descricao: 'BERMUDA TACTEL CINZA' },
+    { codigo: 30, tipo: 'SM.LISA',     cor: 'BRA',     descricao: 'BERMUDA TACTEL BRANCO' },
+    { codigo: 31, tipo: 'SM.LISA',     cor: 'MARINHO', descricao: 'BERMUDA TACTEL AZUL MARINHO' },
+    { codigo: 32, tipo: 'SM.LISA',     cor: 'MARROM',  descricao: 'BERMUDA TACTEL MARROM' },
+    { codigo: 33, tipo: 'BM.LISA',     cor: 'PRE',     descricao: 'BLUSA CANGURU PRETO' },
+    { codigo: 39, tipo: 'BM.LISA',     cor: 'MARROM',  descricao: 'BLUSA CANGURU MARROM' },
+    { codigo: 40, tipo: 'BM.LISA',     cor: 'MOSTARDA', descricao: 'BLUSA CANGURU MOSTARDA' },
+    { codigo: 41, tipo: 'CM.TRI.LISA', cor: 'VERDE',   descricao: 'CAMISETA TRICOLOR VERDE' },
+    { codigo: 42, tipo: 'CM.REC.LISA', cor: 'VERDE',   descricao: 'CAMISETA RECORTADA VERDE' },
+    { codigo: 43, tipo: 'CM.REC.LISA', cor: 'VERM',    descricao: 'CAMISETA RECORTADA VERMELHO' },
+    { codigo: 44, tipo: 'CM.REC.LISA', cor: 'PRE',     descricao: 'CAMISETA RECORTADA PRETO' },
+    { codigo: 51, tipo: 'CM.TRI.LISA', cor: 'PRE',     descricao: 'CAMISETA TRICOLOR PRETO' },
+    { codigo: 52, tipo: 'CM.TRI.LISA', cor: 'BRA',     descricao: 'CAMISETA TRICOLOR BRANCO' },
+    { codigo: 53, tipo: 'CM.REC.LISA', cor: 'ROXO',    descricao: 'CAMISETA RECORTADA ROXO' },
+    { codigo: 58, tipo: 'BERM',        cor: 'BRA',     descricao: 'BERMUDA MOLETOM SPARTANA BRANCO' },
+    { codigo: 62, tipo: 'BERM',        cor: 'MAR',     descricao: 'BERMUDA MOLETOM SPARTANA MARSALA' },
+    { codigo: 64, tipo: 'BM.TRI',      cor: 'VERDE',   descricao: 'BLUSA CANGURU TRICOLOR VERDE' },
+    { codigo: 65, tipo: 'BM.TRI',      cor: 'BEGE',    descricao: 'BLUSA CANGURU TRICOLOR BEGE' },
+    { codigo: 67, tipo: 'PM.TRI.LISA', cor: 'PRE',     descricao: 'CAMISETA GOLA POLO TRICOLOR PRETO' },
   ];
-  const CORES_LEGACY = {
-    'CM.BÁSICA': ['PRETA','BRANCA','VERMELHA','VERDE','BEGE','AZUL','MARROM','GRAFITE','ROXA'],
-    'CM.TRI':    ['CAQUI','VERDE','GRAFITE','BRANCA'],
-    'CM.POLO':   ['PRETO','AZUL','BRANCO','ROXO','BEGE'],
-    'BM.BÁSICA': ['PRETO','BRANCO','MARROM','BEGE','MOSTARDA'],
-    'BM.TRI':    ['PRETO','VERDE'],
+
+  // Apelidos do ERP → tipo canônico do programa.
+  const TIPO_ALIASES = {
+    'SM.LISO': 'SM.LISA',
+    'SM.LIS0': 'SM.LISA',
+    'BM.LISO': 'BM.LISA',
+    'CM.TRI':  'CM.TRI.LISA',
   };
-  const PREFIXOS_LEGACY = ['BERM.GRA-','BERM.MAR-','BERM.PRE-','BERM.BRA-','BERM.MESCLA-'];
-  const GRUPOS_ORDEM = [
-    'CM.LISA-', 'CM.BÁSICA-',
-    'CM.TRI.LISA-', 'CM.TRI-',
-    'CM.REC.LISA-',
-    'PM.LISA-', 'CM.POLO-',
-    'PM.TRI.LISA-',
-    'BM.LISA-', 'BM.BÁSICA-',
-    'BM.TRI-',
-    'SM.LISA-',
-    'BERM-', ...PREFIXOS_LEGACY,
-    'SF.BERM.FEM-',
-    'CONJINF-',
-  ];
+
+  function tipoCanonico(tipo) {
+    const t = String(tipo || '').toUpperCase().trim();
+    return TIPO_ALIASES[t] || t;
+  }
 
   function gerarProdutos() {
-    const out = [];
-    let codigo = 1;
-    CATALOGO.forEach(grupo => {
-      grupo.cores.forEach(corAbrev => {
-        const corNome = CORES_NOME[corAbrev] || corAbrev;
-        TAMANHOS_ORDEM.forEach(t => {
-          out.push({
-            codigo: codigo++,
-            item: grupo.tipo + '-' + corAbrev + '-' + t,
-            tipo: grupo.tipo,
-            cor: corNome,
-            corAbrev: corAbrev,
-            tamanho: t,
-            preco: PRECO_PADRAO,
-            custom: false,
-          });
-        });
-      });
-    });
-    return out;
+    return ERP_CATALOGO.map(e => ({
+      codigo: e.codigo,
+      item: e.tipo + '-' + e.cor,
+      tipo: e.tipo,
+      cor: CORES_NOME[e.cor] || e.cor,
+      corAbrev: e.cor,
+      tamanhos: TAMANHOS_ORDEM.slice(),
+      preco: PRECO_PADRAO,
+      custom: false,
+      descricaoErp: e.descricao,
+    }));
   }
 
-  function corOrdemPara(grupo) {
-    const tipo = grupo.endsWith('-') ? grupo.slice(0, -1) : grupo;
-    const def = CATALOGO.find(g => g.tipo === tipo);
-    if (def) return def.cores;
-    if (CORES_LEGACY[tipo]) return CORES_LEGACY[tipo];
-    return null;
-  }
   function corAbrevDoProduto(p) {
     if (p.corAbrev) return p.corAbrev;
     if (p.tipo && p.item && p.item.startsWith(p.tipo + '-')) {
-      const semPrefix = p.item.slice(p.tipo.length + 1);
-      const idx = semPrefix.lastIndexOf('-');
-      return idx === -1 ? semPrefix : semPrefix.slice(0, idx);
+      return p.item.slice(p.tipo.length + 1);
     }
     return p.cor;
-  }
-  function grupoDoItem(item) {
-    for (const g of GRUPOS_ORDEM) if (item && item.startsWith(g)) return g;
-    return null;
   }
   function loadJson(key, fallback) {
     try {
@@ -1300,15 +1315,39 @@
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
   function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 
-  function calcEstoque(codigo) {
-    const ent = entradas.filter(e => e.codigo === codigo).reduce((s, e) => s + e.quantidade, 0);
-    const sai = saidas.filter(s => s.codigo === codigo).reduce((s, x) => s + x.quantidade, 0);
-    const ajt = ajustes.filter(a => a.codigo === codigo).reduce((s, a) => s + a.diferenca, 0);
-    return { entradas: ent, saidas: sai, ajustes: ajt, total: ent - sai + ajt };
+  function calcEstoque(codigo, tamanho) {
+    const matchSku = (x) => x.codigo === codigo && x.tamanho === tamanho;
+    const ent = entradas.filter(matchSku).reduce((s, e) => s + e.quantidade, 0);
+    const sai = saidas.filter(matchSku).reduce((s, x) => s + x.quantidade, 0);
+    const ajList = ajustes.filter(matchSku);
+    const ajt = ajList.reduce((s, a) => s + a.diferenca, 0);
+    return { entradas: ent, saidas: sai, ajustes: ajt, total: ent - sai + ajt, ajList };
   }
 
-  function calcCMP(codigo) {
-    const ents = entradas.filter(e => e.codigo === codigo);
+  function ultimaContagem(codigo, tamanho) {
+    const list = ajustes.filter(a => a.codigo === codigo && a.tamanho === tamanho);
+    if (list.length === 0) return null;
+    const sorted = list.slice().sort((a, b) => (b.data || '').localeCompare(a.data || '') || (b.id || '').localeCompare(a.id || ''));
+    return sorted[0];
+  }
+
+  function totalContagensSku(codigo, tamanho) {
+    return ajustes.filter(a => a.codigo === codigo && a.tamanho === tamanho).reduce((s, a) => s + a.diferenca, 0);
+  }
+
+  function calcEstoqueProdutoBase(codigo) {
+    const p = produtos.find(p => p.codigo === codigo);
+    if (!p || !Array.isArray(p.tamanhos)) return { total: 0, entradas: 0, saidas: 0, ajustes: 0 };
+    let ent = 0, sai = 0, aj = 0;
+    p.tamanhos.forEach(t => {
+      const e = calcEstoque(codigo, t);
+      ent += e.entradas; sai += e.saidas; aj += e.ajustes;
+    });
+    return { entradas: ent, saidas: sai, ajustes: aj, total: ent - sai + aj };
+  }
+
+  function calcCMP(codigo, tamanho) {
+    const ents = entradas.filter(e => e.codigo === codigo && (tamanho == null || e.tamanho === tamanho));
     if (ents.length === 0) {
       const p = produtos.find(p => p.codigo === codigo);
       return p ? p.preco : PRECO_PADRAO;
@@ -1327,6 +1366,19 @@
     return max + 1;
   }
 
+  function listarSkus() {
+    const out = [];
+    produtos.slice().sort((a, b) => a.codigo - b.codigo).forEach(p => {
+      const ts = Array.isArray(p.tamanhos) ? p.tamanhos : [];
+      ts.forEach(t => out.push({ produto: p, tamanho: t }));
+    });
+    return out;
+  }
+
+  function fmtSkuCodigo(codigo, tamanho) {
+    return fmtCodigo(codigo) + (tamanho ? '-' + tamanho : '');
+  }
+
   function tiposUnicos() {
     const set = new Set();
     produtos.forEach(p => { if (p.tipo) set.add(p.tipo); });
@@ -1338,21 +1390,24 @@
     const fStatus = document.getElementById('f-status').value;
     const fTipo = document.getElementById('f-tipo').value;
     let totProdutos = 0, totEstoque = 0, totMin = 0, totValor = 0;
-    produtos.forEach(p => {
-      if (search && !(fmtCodigo(p.codigo).includes(search) || String(p.codigo).includes(search) || p.item.toLowerCase().includes(search))) return;
+    const produtosContados = new Set();
+    listarSkus().forEach(({ produto: p, tamanho }) => {
+      const codigoStr = fmtSkuCodigo(p.codigo, tamanho);
+      if (search && !(codigoStr.toLowerCase().includes(search) || String(p.codigo).includes(search) || p.item.toLowerCase().includes(search) || tamanho.toLowerCase().includes(search))) return;
       if (fTipo && p.tipo !== fTipo) return;
-      const est = calcEstoque(p.codigo);
+      const est = calcEstoque(p.codigo, tamanho);
       const isMin = est.total <= config.estoqueMin;
       const isMax = config.estoqueMax > 0 && est.total > config.estoqueMax;
       if (fStatus === 'min' && !isMin) return;
       if (fStatus === 'max' && !isMax) return;
       if (fStatus === 'ok' && (isMin || isMax)) return;
-      const cmp = calcCMP(p.codigo);
-      totProdutos++;
+      const cmp = calcCMP(p.codigo, tamanho);
+      produtosContados.add(p.codigo);
       totEstoque += est.total;
       if (isMin) totMin++;
       totValor += est.total * cmp;
     });
+    totProdutos = produtosContados.size;
     document.getElementById('m-produtos').textContent = totProdutos;
     document.getElementById('m-estoque').textContent = fmtNum(totEstoque);
     document.getElementById('m-minimo').textContent = totMin;
@@ -1374,11 +1429,12 @@
     const tbody = document.querySelector('#tbl-estoque tbody');
     let rows = '';
     let count = 0;
-    produtos.forEach(p => {
-      if (search && !(fmtCodigo(p.codigo).includes(search) || String(p.codigo).includes(search) || p.item.toLowerCase().includes(search))) return;
+    listarSkus().forEach(({ produto: p, tamanho }) => {
+      const codigoStr = fmtSkuCodigo(p.codigo, tamanho);
+      if (search && !(codigoStr.toLowerCase().includes(search) || String(p.codigo).includes(search) || p.item.toLowerCase().includes(search) || tamanho.toLowerCase().includes(search))) return;
       if (fTipo && p.tipo !== fTipo) return;
-      const est = calcEstoque(p.codigo);
-      const cmp = calcCMP(p.codigo);
+      const est = calcEstoque(p.codigo, tamanho);
+      const cmp = calcCMP(p.codigo, tamanho);
       const isMin = est.total <= config.estoqueMin;
       const isMax = config.estoqueMax > 0 && est.total > config.estoqueMax;
       if (fStatus === 'min' && !isMin) return;
@@ -1386,11 +1442,15 @@
       if (fStatus === 'ok' && (isMin || isMax)) return;
       const pillCls = isMin ? 'pill-min' : (isMax ? 'pill-warn' : 'pill-ok');
       const pillTxt = isMin ? 'Estoque mínimo' : (isMax ? 'Estoque excedente' : 'Estoque ok');
-      const ajTxt = est.ajustes === 0 ? '—' : fmtSign(est.ajustes);
+      const ult = ultimaContagem(p.codigo, tamanho);
+      const contagemTxt = ult ? fmtNum(ult.qtdContada) : '—';
+      const dataContagemTxt = ult ? fmtData(ult.data) : '—';
       rows += '<tr>' +
-        '<td class="code">' + fmtCodigo(p.codigo) + (p.custom ? ' <span class="badge-novo">novo</span>' : '') + '</td>' +
+        '<td class="code">' + escHtml(codigoStr) + (p.custom ? ' <span class="badge-novo">novo</span>' : '') + '</td>' +
         '<td>' + escHtml(p.item) + '</td>' +
-        '<td class="num">' + ajTxt + '</td>' +
+        '<td>' + escHtml(tamanho) + '</td>' +
+        '<td class="num">' + contagemTxt + '</td>' +
+        '<td>' + dataContagemTxt + '</td>' +
         '<td class="num">' + fmtNum(est.entradas) + '</td>' +
         '<td class="num">' + fmtNum(est.saidas) + '</td>' +
         '<td class="num"><strong>' + fmtNum(est.total) + '</strong></td>' +
@@ -1399,7 +1459,7 @@
         '</tr>';
       count++;
     });
-    tbody.innerHTML = count > 0 ? rows : '<tr><td colspan="8" class="empty">Nenhum produto encontrado com os filtros aplicados.</td></tr>';
+    tbody.innerHTML = count > 0 ? rows : '<tr><td colspan="10" class="empty">Nenhum produto encontrado com os filtros aplicados.</td></tr>';
   }
 
   function renderProdutos() {
@@ -1422,7 +1482,8 @@
       } else {
         acoes = '<span style="font-size:11px; color: var(--text-mute);">—</span>';
       }
-      return '<tr><td class="code">' + fmtCodigo(p.codigo) + (p.custom ? ' <span class="badge-novo">novo</span>' : '') + '</td><td>' + escHtml(p.item) + '</td><td>' + escHtml(p.tipo || '—') + '</td><td>' + escHtml(p.cor || '—') + '</td><td>' + escHtml(p.tamanho || '—') + '</td><td class="num">' + fmtBRL(p.preco) + '</td><td>' + acoes + '</td></tr>';
+      const tamsTxt = Array.isArray(p.tamanhos) && p.tamanhos.length ? p.tamanhos.join(', ') : '—';
+      return '<tr><td class="code">' + fmtCodigo(p.codigo) + (p.custom ? ' <span class="badge-novo">novo</span>' : '') + '</td><td>' + escHtml(p.item) + '</td><td>' + escHtml(p.tipo || '—') + '</td><td>' + escHtml(p.cor || '—') + '</td><td>' + escHtml(tamsTxt) + '</td><td class="num">' + fmtBRL(p.preco) + '</td><td>' + acoes + '</td></tr>';
     }).join('');
   }
 
@@ -1438,28 +1499,33 @@
     const linkOuTraco = (attr, id) => admin ? '<button class="link-btn" data-' + attr + '="' + id + '">excluir</button>' : '';
     tbE.innerHTML = ents.length ? ents.map(e => {
       const p = produtos.find(p => p.codigo === e.codigo);
-      return '<tr><td>' + fmtData(e.data) + '</td><td class="code">' + fmtCodigo(e.codigo) + '</td><td>' + escHtml(p ? p.item : '—') + '</td><td class="num">' + fmtNum(e.quantidade) + '</td><td class="num">' + fmtBRL(e.custo) + '</td><td class="num">' + fmtBRL(e.quantidade * e.custo) + '</td><td>' + linkOuTraco('del-ent', e.id) + '</td></tr>';
-    }).join('') : '<tr><td colspan="7" class="empty">Nenhuma entrada registrada.</td></tr>';
+      return '<tr><td>' + fmtData(e.data) + '</td><td class="code">' + fmtSkuCodigo(e.codigo, e.tamanho) + '</td><td>' + escHtml(p ? p.item : '—') + '</td><td>' + escHtml(e.tamanho || '—') + '</td><td class="num">' + fmtNum(e.quantidade) + '</td><td class="num">' + fmtBRL(e.custo) + '</td><td class="num">' + fmtBRL(e.quantidade * e.custo) + '</td><td>' + linkOuTraco('del-ent', e.id) + '</td></tr>';
+    }).join('') : '<tr><td colspan="8" class="empty">Nenhuma entrada registrada.</td></tr>';
     tbS.innerHTML = sais.length ? sais.map(s => {
       const p = produtos.find(p => p.codigo === s.codigo);
       const di = destinoInfo(s.destino);
       const origem = s.origem === 'erp-import' ? ' <span class="badge-novo" style="background:#1e3a8a;color:#93c5fd;">ERP</span>' : '';
-      return '<tr><td>' + fmtData(s.data) + '</td><td class="code">' + fmtCodigo(s.codigo) + '</td><td>' + escHtml(p ? p.item : '—') + origem + '</td><td><span class="pill ' + di.pill + '">' + di.label + '</span></td><td class="num">' + fmtNum(s.quantidade) + '</td><td class="num">' + fmtBRL(s.valor) + '</td><td class="num">' + fmtBRL(s.quantidade * s.valor) + '</td><td>' + linkOuTraco('del-sai', s.id) + '</td></tr>';
-    }).join('') : '<tr><td colspan="8" class="empty">Nenhuma saída registrada.</td></tr>';
+      return '<tr><td>' + fmtData(s.data) + '</td><td class="code">' + fmtSkuCodigo(s.codigo, s.tamanho) + '</td><td>' + escHtml(p ? p.item : '—') + origem + '</td><td>' + escHtml(s.tamanho || '—') + '</td><td><span class="pill ' + di.pill + '">' + di.label + '</span></td><td class="num">' + fmtNum(s.quantidade) + '</td><td class="num">' + fmtBRL(s.valor) + '</td><td class="num">' + fmtBRL(s.quantidade * s.valor) + '</td><td>' + linkOuTraco('del-sai', s.id) + '</td></tr>';
+    }).join('') : '<tr><td colspan="9" class="empty">Nenhuma saída registrada.</td></tr>';
     tbA.innerHTML = ajs.length ? ajs.map(a => {
       const p = produtos.find(p => p.codigo === a.codigo);
       const cls = a.diferenca > 0 ? 'pill-pos' : (a.diferenca < 0 ? 'pill-neg' : 'pill-zero');
-      return '<tr><td>' + fmtData(a.data) + '</td><td class="code">' + fmtCodigo(a.codigo) + '</td><td>' + escHtml(p ? p.item : '—') + '</td><td class="num">' + fmtNum(a.qtdAnterior) + '</td><td class="num">' + fmtNum(a.qtdContada) + '</td><td class="num"><span class="pill ' + cls + '">' + fmtSign(a.diferenca) + '</span></td><td>' + escHtml(a.motivo || '—') + '</td><td>' + linkOuTraco('del-aj', a.id) + '</td></tr>';
-    }).join('') : '<tr><td colspan="8" class="empty">Nenhum ajuste registrado.</td></tr>';
+      const origem = a.origem === 'erp-import' ? ' <span class="badge-novo" style="background:#1e3a8a;color:#93c5fd;">ERP</span>' : '';
+      return '<tr><td>' + fmtData(a.data) + '</td><td class="code">' + fmtSkuCodigo(a.codigo, a.tamanho) + '</td><td>' + escHtml(p ? p.item : '—') + origem + '</td><td>' + escHtml(a.tamanho || '—') + '</td><td class="num">' + fmtNum(a.qtdAnterior) + '</td><td class="num">' + fmtNum(a.qtdContada) + '</td><td class="num"><span class="pill ' + cls + '">' + fmtSign(a.diferenca) + '</span></td><td>' + escHtml(a.motivo || '—') + '</td><td>' + linkOuTraco('del-aj', a.id) + '</td></tr>';
+    }).join('') : '<tr><td colspan="9" class="empty">Nenhum ajuste registrado.</td></tr>';
   }
 
   function popularSelects() {
     const ordenados = produtos.slice().sort((a,b) => a.codigo - b.codigo);
     const opts = ordenados.map(p => '<option value="' + p.codigo + '">' + fmtCodigo(p.codigo) + ' — ' + escHtml(p.item) + '</option>').join('');
     const placeholder = '<option value="" disabled selected>Selecione o produto...</option>';
+    const placeholderTam = '<option value="" disabled selected>Tam...</option>';
     document.querySelector('#form-entrada select[name=codigo]').innerHTML = placeholder + opts;
     document.querySelector('#form-saida select[name=codigo]').innerHTML = placeholder + opts;
     document.querySelector('#form-ajuste select[name=codigo]').innerHTML = placeholder + opts;
+    document.querySelector('#form-entrada select[name=tamanho]').innerHTML = placeholderTam;
+    document.querySelector('#form-saida select[name=tamanho]').innerHTML = placeholderTam;
+    document.querySelector('#form-ajuste select[name=tamanho]').innerHTML = placeholderTam;
     const fifoSel = document.getElementById('fifo-prod');
     const atualFifo = fifoSel.value;
     fifoSel.innerHTML = '<option value="">Selecione um produto para ver o relatório FIFO...</option>' + opts;
@@ -1472,20 +1538,57 @@
     document.querySelector('#form-saida input[name=valor]').value = (PRECO_PADRAO * 2).toFixed(2);
     document.querySelector('#form-produto input[name=codigo]').value = proximoCodigo();
     document.querySelector('#form-produto input[name=preco]').value = PRECO_PADRAO.toFixed(2);
+    renderTamanhosChecks('prod-tamanhos-checks', []);
+  }
+
+  function atualizarSelectTamanho(formSel, codigoSel, tamSel, opts) {
+    opts = opts || {};
+    const codigo = parseInt(codigoSel.value);
+    const p = produtos.find(p => p.codigo === codigo);
+    const tams = p && Array.isArray(p.tamanhos) ? p.tamanhos.slice() : [];
+    const placeholder = '<option value="" disabled' + (tams.length ? '' : ' selected') + '>' + (opts.placeholder || 'Tam...') + '</option>';
+    const html = placeholder + tams.map(t => '<option value="' + escHtml(t) + '">' + escHtml(t) + '</option>').join('');
+    const previo = tamSel.value;
+    tamSel.innerHTML = html;
+    if (previo && tams.includes(previo)) tamSel.value = previo;
+    else if (tams.length === 1) tamSel.value = tams[0];
+  }
+
+  function renderTamanhosChecks(containerId, selecionados) {
+    const c = document.getElementById(containerId);
+    if (!c) return;
+    const sel = new Set((selecionados || []).map(s => String(s).toUpperCase()));
+    c.innerHTML = TAMANHOS_ORDEM.map(t => {
+      const checked = sel.has(t) ? 'checked' : '';
+      const cls = sel.has(t) ? 'checked' : '';
+      return '<label class="' + cls + '"><input type="checkbox" value="' + t + '" ' + checked + '> ' + t + '</label>';
+    }).join('');
+    c.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        cb.parentElement.classList.toggle('checked', cb.checked);
+      });
+    });
+  }
+
+  function lerTamanhosChecks(containerId) {
+    const c = document.getElementById(containerId);
+    if (!c) return [];
+    return [...c.querySelectorAll('input[type=checkbox]:checked')].map(cb => cb.value);
   }
 
   function atualizarInfoAjuste() {
     const codigo = parseInt(document.querySelector('#form-ajuste select[name=codigo]').value);
+    const tamanho = document.querySelector('#form-ajuste select[name=tamanho]').value;
     const contadoStr = document.querySelector('#form-ajuste input[name=contado]').value;
     const box = document.getElementById('aj-info');
-    if (!codigo) {
+    if (!codigo || !tamanho) {
       box.className = 'info-box';
-      box.innerHTML = '<span>Selecione um produto para ver o estoque atual.</span>';
+      box.innerHTML = '<span>Selecione um produto e tamanho para ver o estoque atual.</span>';
       return;
     }
-    const est = calcEstoque(codigo);
+    const est = calcEstoque(codigo, tamanho);
     const p = produtos.find(p => p.codigo === codigo);
-    let html = '<span>Item: <strong>' + escHtml(p ? p.item : codigo) + '</strong></span>';
+    let html = '<span>Item: <strong>' + escHtml(p ? p.item : codigo) + ' (' + escHtml(tamanho) + ')</strong></span>';
     html += '<span>Estoque atual: <strong>' + fmtNum(est.total) + '</strong></span>';
     box.className = 'info-box';
     if (contadoStr !== '') {
@@ -1509,9 +1612,10 @@
     t._timer = setTimeout(() => { t.style.display = 'none'; }, 3000);
   }
 
-  function calcFIFO(codigo) {
-    const ents = entradas.filter(e => e.codigo === codigo).map(e => ({ data: e.data, id: e.id, _kind: 'ent', quantidade: e.quantidade, custo: e.custo }));
-    const sais = saidas.filter(s => s.codigo === codigo).map(s => ({ data: s.data, id: s.id, _kind: 'sai', quantidade: s.quantidade, destino: s.destino }));
+  function calcFIFO(codigo, tamanho) {
+    const matchSku = (x) => x.codigo === codigo && (tamanho == null || x.tamanho === tamanho);
+    const ents = entradas.filter(matchSku).map(e => ({ data: e.data, id: e.id, _kind: 'ent', quantidade: e.quantidade, custo: e.custo, tamanho: e.tamanho }));
+    const sais = saidas.filter(matchSku).map(s => ({ data: s.data, id: s.id, _kind: 'sai', quantidade: s.quantidade, destino: s.destino, tamanho: s.tamanho }));
     const eventos = ents.concat(sais).sort((a, b) => {
       const cmp = (a.data || '').localeCompare(b.data || '');
       if (cmp !== 0) return cmp;
@@ -1526,7 +1630,7 @@
         lotes.push({ qtd: ev.quantidade, custo: ev.custo });
         const saldoQtd = lotes.reduce((s, l) => s + l.qtd, 0);
         const saldoVal = lotes.reduce((s, l) => s + l.qtd * l.custo, 0);
-        linhas.push({ data: ev.data, tipo: 'Entrada', qtdEnt: ev.quantidade, custoEnt: ev.custo, totalEnt: ev.quantidade * ev.custo, qtdSai: null, custoSai: null, totalSai: null, saldoQtd, saldoVal });
+        linhas.push({ data: ev.data, tipo: 'Entrada', tamanho: ev.tamanho, qtdEnt: ev.quantidade, custoEnt: ev.custo, totalEnt: ev.quantidade * ev.custo, qtdSai: null, custoSai: null, totalSai: null, saldoQtd, saldoVal });
       } else {
         let restante = ev.quantidade;
         let custoTotal = 0;
@@ -1545,7 +1649,7 @@
         const saldoQtd = lotes.reduce((s, l) => s + l.qtd, 0);
         const saldoVal = lotes.reduce((s, l) => s + l.qtd * l.custo, 0);
         const di = destinoInfo(ev.destino);
-        linhas.push({ data: ev.data, tipo: 'Saída → ' + di.label, qtdEnt: null, custoEnt: null, totalEnt: null, qtdSai: ev.quantidade, custoSai: custoMedio, totalSai: custoTotal, saldoQtd, saldoVal });
+        linhas.push({ data: ev.data, tipo: 'Saída → ' + di.label, tamanho: ev.tamanho, qtdEnt: null, custoEnt: null, totalEnt: null, qtdSai: ev.quantidade, custoSai: custoMedio, totalSai: custoTotal, saldoQtd, saldoVal });
       }
     });
     const saldoQtd = lotes.reduce((s, l) => s + l.qtd, 0);
@@ -1553,9 +1657,22 @@
     return { linhas, saldoQtd, saldoVal, cmvAcumulado };
   }
 
+  function atualizarFifoTamanhos() {
+    const sel = document.getElementById('fifo-prod');
+    const tamSel = document.getElementById('fifo-tam');
+    const codigo = parseInt(sel.value);
+    const p = produtos.find(p => p.codigo === codigo);
+    const tams = p && Array.isArray(p.tamanhos) ? p.tamanhos.slice() : [];
+    const previo = tamSel.value;
+    tamSel.innerHTML = '<option value="">Todos os tamanhos</option>' + tams.map(t => '<option value="' + escHtml(t) + '">' + escHtml(t) + '</option>').join('');
+    if (previo && tams.includes(previo)) tamSel.value = previo;
+  }
+
   function renderFIFO() {
     const sel = document.getElementById('fifo-prod');
+    const tamSel = document.getElementById('fifo-tam');
     const codigo = parseInt(sel.value);
+    const tamanho = tamSel.value || null;
     const tbody = document.querySelector('#tbl-fifo tbody');
     const elQtd = document.getElementById('fifo-saldo-qtd');
     const elVal = document.getElementById('fifo-saldo-val');
@@ -1567,7 +1684,7 @@
       elCmv.textContent = fmtBRL(0);
       return;
     }
-    const r = calcFIFO(codigo);
+    const r = calcFIFO(codigo, tamanho);
     elQtd.textContent = fmtNum(r.saldoQtd);
     elVal.textContent = fmtBRL(r.saldoVal);
     elCmv.textContent = fmtBRL(r.cmvAcumulado);
@@ -1578,7 +1695,7 @@
     tbody.innerHTML = r.linhas.map(l => {
       return '<tr>' +
         '<td>' + fmtData(l.data) + '</td>' +
-        '<td>' + escHtml(l.tipo) + '</td>' +
+        '<td>' + escHtml(l.tipo) + (l.tamanho ? ' [' + escHtml(l.tamanho) + ']' : '') + '</td>' +
         '<td class="num">' + (l.qtdEnt != null ? fmtNum(l.qtdEnt) : '—') + '</td>' +
         '<td class="num">' + (l.custoEnt != null ? fmtBRL(l.custoEnt) : '—') + '</td>' +
         '<td class="num">' + (l.totalEnt != null ? fmtBRL(l.totalEnt) : '—') + '</td>' +
@@ -1667,40 +1784,119 @@
     popularConfigForm();
     refreshAll();
     carregarUsuarios();
-    renderErpSaidas();
+    renderErpContagens();
   }
 
-  const KEY_IMPORT_MAP = 'estoque:importMap';
-  let importHeaders = [];
-  let importRows = [];
+  // === Importação do relatório do ERP ===
+  let importRows = [];          // linhas normalizadas { codigo, tamanho, quantidade, tipo, cor, descricao }
+  let importDataEmissao = '';   // YYYY-MM-DD do cabeçalho do PDF, quando disponível
 
-  const COL_HINTS = {
-    sku: ['sku', 'codigo sku', 'código sku', 'cod sku', 'código de barras', 'codigo de barras', 'item', 'codigo produto', 'código do produto', 'cod.produto', 'cód.produto', 'código produto'],
-    variacao: ['variacao', 'variação', 'var', 'variante', 'variant', 'tamanho', 'cor/tamanho'],
-    quantidade: ['quantidade', 'qtd', 'qtde', 'qt', 'qtd vendida', 'quantidade vendida', 'quant', 'quant.'],
-    valor: ['valor unitario', 'valor unitário', 'preco unitario', 'preço unitário', 'valor', 'preco', 'preço', 'preco unit', 'valor unit', 'total', 'valor total', 'subtotal'],
-    data: ['data', 'data venda', 'data da venda', 'data emissao', 'data emissão', 'data pedido', 'data do pedido'],
-    externalId: ['numero do pedido', 'número do pedido', 'numero pedido', 'número pedido', 'pedido', 'id pedido', 'codigo pedido', 'código pedido', 'nro pedido', 'nº pedido'],
-  };
-  const VALOR_TOTAL_HINTS = ['total', 'valor total', 'subtotal'];
-
-  function autoDetect(headers, hints) {
-    const norm = h => String(h || '').toLowerCase().trim().replace(/\s+/g, ' ');
-    for (const h of hints) {
-      const idx = headers.findIndex(x => norm(x) === norm(h));
-      if (idx !== -1) return idx;
+  function parseDataBR(v) {
+    if (!v) return '';
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    const s = String(v).trim();
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return m[1] + '-' + m[2] + '-' + m[3];
+    m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+    if (m) {
+      const dd = m[1].padStart(2, '0');
+      const mm = m[2].padStart(2, '0');
+      let yy = m[3];
+      if (yy.length === 2) yy = (parseInt(yy, 10) >= 70 ? '19' : '20') + yy;
+      return yy + '-' + mm + '-' + dd;
     }
-    for (const h of hints) {
-      const idx = headers.findIndex(x => norm(x).includes(norm(h)));
-      if (idx !== -1) return idx;
-    }
-    return -1;
+    return '';
   }
 
-  function parseCSV(text) {
-    const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim().length > 0);
-    if (lines.length === 0) return { headers: [], rows: [] };
-    const sep = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ';' : ',';
+  // Extrai SUFIXO do tipo+cor da descrição do ERP.
+  // Ex.: "BERMUDA TACTEL AZUL MARINHO G-SM.LIS0-MARINHO" -> { tipo: 'SM.LISA', cor: 'MARINHO', descricao: 'BERMUDA TACTEL AZUL MARINHO' }
+  // O sufixo é a última ocorrência de "<TIPO>-<COR>" precedida por hífen-tamanho.
+  function extrairTipoCorDaDescricao(descCompleta) {
+    if (!descCompleta) return { tipo: '', cor: '', descricao: '' };
+    const s = String(descCompleta).trim();
+    // Procura o último padrão " <TAMANHO>-<TIPO>-<COR>" no fim da string
+    const re = /\s+(P|M|G|GG|G1|G2|G3)-([A-Z][A-Z0-9.]*?)-([A-Z][A-Z0-9]*)\s*$/;
+    const m = s.match(re);
+    if (m) {
+      const descricao = s.slice(0, m.index).trim();
+      return { tipo: tipoCanonico(m[2]), cor: m[3].toUpperCase(), descricao };
+    }
+    // Fallback: tenta identificar via tamanho qualquer e tipo livre
+    return { tipo: '', cor: '', descricao: s };
+  }
+
+  // Lê PDF do ERP e retorna { rows, dataEmissao }.
+  async function parsePdfErp(file) {
+    if (typeof pdfjsLib === 'undefined') {
+      throw new Error('pdf.js não carregou. Verifique a internet.');
+    }
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const linhas = [];
+    let dataEmissao = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const tc = await page.getTextContent();
+      // Agrupa items por linha (Y aproximado)
+      const grupos = {};
+      tc.items.forEach(it => {
+        const y = Math.round(it.transform[5]);
+        const x = it.transform[4];
+        if (!grupos[y]) grupos[y] = [];
+        grupos[y].push({ x, str: it.str });
+      });
+      const ys = Object.keys(grupos).map(n => parseInt(n, 10)).sort((a, b) => b - a);
+      ys.forEach(y => {
+        const arr = grupos[y].sort((a, b) => a.x - b.x);
+        const linha = arr.map(o => o.str).join(' ').replace(/\s+/g, ' ').trim();
+        if (linha) linhas.push(linha);
+      });
+    }
+    // Procura DATA DE EMISSÃO
+    for (let i = 0; i < linhas.length; i++) {
+      const m = linhas[i].match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/);
+      if (m && /EMISS/i.test(linhas[Math.max(0, i - 1)] + ' ' + linhas[i])) {
+        const d = parseDataBR(m[1]);
+        if (d) { dataEmissao = d; break; }
+      }
+    }
+    if (!dataEmissao) {
+      // Fallback: primeira data encontrada
+      for (const l of linhas) {
+        const m = l.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/);
+        if (m) { const d = parseDataBR(m[1]); if (d) { dataEmissao = d; break; } }
+      }
+    }
+    // Identifica linhas de produto: começam com número e contêm padrão " QTD,DDD TAM"
+    const rows = [];
+    const reLinha = /^\s*(\d{1,4})\s+(.+?)\s+([\d.]+,\d+)\s+(P|M|G|GG|G1|G2|G3)\s+([\d.]+,\d+)\s+([\d.]+,\d+)\s*$/;
+    linhas.forEach(l => {
+      const m = l.match(reLinha);
+      if (!m) return;
+      const codigo = parseInt(m[1], 10);
+      const descCompleta = m[2];
+      // Quantidade: "1,000" no ERP = 1 unidade. Pega a parte inteira.
+      const quantidade = parseInt(m[3].split(',')[0].replace(/\./g, ''), 10);
+      const tamanho = m[4].toUpperCase();
+      const custo = parseFloat(m[5].replace(/\./g, '').replace(',', '.'));
+      const tc = extrairTipoCorDaDescricao(descCompleta);
+      rows.push({
+        codigo,
+        tamanho,
+        quantidade,
+        tipo: tc.tipo,
+        cor: tc.cor,
+        descricao: tc.descricao || descCompleta,
+        preco: Number.isFinite(custo) ? custo : 0,
+      });
+    });
+    return { rows, dataEmissao };
+  }
+
+  function parseCsvErp(text) {
+    const linhas = text.replace(/\r/g, '').split('\n').filter(l => l.trim().length > 0);
+    if (linhas.length === 0) return { rows: [], dataEmissao: '' };
+    const sep = (linhas[0].match(/;/g) || []).length > (linhas[0].match(/,/g) || []).length ? ';' : ',';
     const splitLine = (line) => {
       const out = []; let cur = ''; let inQ = false;
       for (let i = 0; i < line.length; i++) {
@@ -1715,66 +1911,54 @@
       out.push(cur);
       return out;
     };
-    const headers = splitLine(lines[0]).map(s => s.trim());
-    const rows = lines.slice(1).map(splitLine);
-    return { headers, rows };
-  }
-
-  function parseValorBR(v) {
-    if (v == null || v === '') return NaN;
-    if (typeof v === 'number') return v;
-    let s = String(v).trim().replace(/^R\$\s*/i, '');
-    if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
-    else if (s.includes(',')) s = s.replace(',', '.');
-    return parseFloat(s);
-  }
-
-  function parseDataBR(v) {
-    if (!v) return '';
-    if (v instanceof Date) return v.toISOString().slice(0, 10);
-    const s = String(v).trim();
-    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) return m[1] + '-' + m[2] + '-' + m[3];
-    m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-    if (m) {
-      const dd = m[1].padStart(2, '0');
-      const mm = m[2].padStart(2, '0');
-      return m[3] + '-' + mm + '-' + dd;
+    const headers = splitLine(linhas[0]).map(s => s.trim().toLowerCase());
+    const idx = (...nomes) => {
+      for (const n of nomes) {
+        const i = headers.findIndex(h => h.includes(n));
+        if (i !== -1) return i;
+      }
+      return -1;
+    };
+    const iCod = idx('cód.produto', 'cod.produto', 'cód produto', 'cod produto', 'sku', 'código', 'codigo');
+    const iDesc = idx('descri', 'item', 'produto');
+    const iQtd = idx('quant', 'qtd', 'qtde');
+    const iVar = idx('varia', 'tamanho', 'tam');
+    const iCusto = idx('custo', 'valor unitário', 'valor unitario');
+    if (iCod === -1 || iQtd === -1 || iVar === -1) {
+      throw new Error('Cabeçalho não reconhecido. Esperado pelo menos código, quantidade e variação.');
     }
-    const n = parseFloat(s);
-    if (Number.isFinite(n) && n > 25000 && n < 80000) {
-      const epoch = new Date(Date.UTC(1899, 11, 30));
-      const d = new Date(epoch.getTime() + n * 86400000);
-      return d.toISOString().slice(0, 10);
-    }
-    return '';
-  }
-
-  function popularSelectColuna(selectId, headers, autoIdx, allowEmpty) {
-    const sel = document.getElementById(selectId);
-    let html = allowEmpty ? '<option value="">— sem coluna —</option>' : '';
-    headers.forEach((h, i) => {
-      html += '<option value="' + i + '">' + escHtml(h || '(coluna ' + (i + 1) + ')') + '</option>';
+    const rows = [];
+    linhas.slice(1).forEach(l => {
+      const c = splitLine(l);
+      const codigo = parseInt(String(c[iCod] || '').replace(/\D/g, ''), 10);
+      if (!codigo) return;
+      const tamanho = String(c[iVar] || '').trim().toUpperCase();
+      const quantidade = parseInt(String(c[iQtd] || '').split(',')[0].replace(/\D/g, ''), 10);
+      const desc = iDesc >= 0 ? String(c[iDesc] || '').trim() : '';
+      const tc = extrairTipoCorDaDescricao(desc);
+      const custo = iCusto >= 0 ? parseFloat(String(c[iCusto] || '').replace(/\./g, '').replace(',', '.')) : 0;
+      rows.push({
+        codigo,
+        tamanho,
+        quantidade: Number.isFinite(quantidade) ? quantidade : 0,
+        tipo: tc.tipo,
+        cor: tc.cor,
+        descricao: tc.descricao || desc,
+        preco: Number.isFinite(custo) ? custo : 0,
+      });
     });
-    sel.innerHTML = html;
-    if (autoIdx !== -1 && autoIdx !== undefined && autoIdx !== null && autoIdx !== '') sel.value = String(autoIdx);
-    else if (allowEmpty) sel.value = '';
+    return { rows, dataEmissao: '' };
   }
 
-  function popularSelectColunaComFixa(selectId, headers, autoIdx) {
-    const sel = document.getElementById(selectId);
-    let html = '<option value="__FIXA__">— usar data fixa abaixo —</option>';
-    headers.forEach((h, i) => {
-      html += '<option value="' + i + '">' + escHtml(h || '(coluna ' + (i + 1) + ')') + '</option>';
-    });
-    sel.innerHTML = html;
-    if (autoIdx !== -1 && autoIdx !== undefined && autoIdx !== null && autoIdx !== '') sel.value = String(autoIdx);
-    else sel.value = '__FIXA__';
-  }
-
-  function atualizarVisibilidadeDataFixa() {
-    const v = document.getElementById('map-data').value;
-    document.getElementById('map-data-fixa-wrap').style.display = v === '__FIXA__' ? 'block' : 'none';
+  function parseXlsxErp(buf) {
+    if (typeof XLSX === 'undefined') throw new Error('Biblioteca de Excel não carregou.');
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+    if (aoa.length === 0) return { rows: [], dataEmissao: '' };
+    // Reconstrói como CSV pra reaproveitar parseCsvErp
+    const csv = aoa.map(r => r.map(c => String(c).replace(/;/g, ',')).join(';')).join('\n');
+    return parseCsvErp(csv);
   }
 
   document.getElementById('import-file').addEventListener('change', async (ev) => {
@@ -1783,124 +1967,74 @@
     const ext = (file.name.split('.').pop() || '').toLowerCase();
     document.getElementById('import-preview').style.display = 'none';
     try {
-      let headers = [], rows = [];
-      if (ext === 'csv') {
+      let result;
+      if (ext === 'pdf') {
+        result = await parsePdfErp(file);
+      } else if (ext === 'csv') {
         const text = await file.text();
-        const r = parseCSV(text);
-        headers = r.headers; rows = r.rows;
+        result = parseCsvErp(text);
       } else if (ext === 'xlsx' || ext === 'xls') {
-        if (typeof XLSX === 'undefined') { toast('Biblioteca de Excel não carregou. Verifique a internet e recarregue a página.', 'error'); return; }
         const buf = await file.arrayBuffer();
-        const wb = XLSX.read(buf, { type: 'array', cellDates: true });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
-        if (aoa.length > 0) { headers = aoa[0]; rows = aoa.slice(1); }
+        result = parseXlsxErp(buf);
       } else {
-        toast('Formato não suportado. Use .csv, .xlsx ou .xls.', 'error');
+        toast('Formato não suportado. Use .pdf, .csv, .xlsx ou .xls.', 'error');
         return;
       }
-      if (headers.length === 0) { toast('Arquivo vazio ou sem cabeçalho.', 'error'); return; }
-      importHeaders = headers;
-      importRows = rows;
-      const saved = loadJson(KEY_IMPORT_MAP, {});
-      ['sku','variacao','quantidade','valor','externalId'].forEach(k => {
-        const auto = saved[k] !== undefined ? saved[k] : autoDetect(headers, COL_HINTS[k]);
-        popularSelectColuna('map-' + k, headers, auto, k === 'externalId' || k === 'variacao');
-      });
-      const dataAutoIdx = saved.data !== undefined ? saved.data : autoDetect(headers, COL_HINTS.data);
-      popularSelectColunaComFixa('map-data', headers, dataAutoIdx);
-      const valorIdx = parseInt(document.getElementById('map-valor').value);
-      const valorTotalAuto = saved.valorTotal !== undefined ? saved.valorTotal :
-        (valorIdx >= 0 && VALOR_TOTAL_HINTS.some(h => String(headers[valorIdx] || '').toLowerCase().includes(h)));
-      document.getElementById('map-valor-total').checked = !!valorTotalAuto;
-      atualizarVisibilidadeDataFixa();
-      if (saved.dataFixa) document.getElementById('map-data-fixa').value = saved.dataFixa;
-      else document.getElementById('map-data-fixa').value = new Date().toISOString().slice(0, 10);
-      if (saved.destino) document.getElementById('map-destino').value = saved.destino;
-      document.getElementById('import-mapping').style.display = 'block';
-      document.getElementById('import-preview').style.display = 'none';
-      toast(rows.length + ' linhas detectadas. Confirme o mapeamento.');
+      importRows = result.rows;
+      importDataEmissao = result.dataEmissao || '';
+      if (importRows.length === 0) { toast('Nenhuma linha de produto detectada no arquivo.', 'error'); return; }
+      const dataDefault = importDataEmissao || new Date().toISOString().slice(0, 10);
+      document.getElementById('import-data-contagem').value = dataDefault;
+      document.getElementById('import-data-emissao').value = importDataEmissao || '';
+      document.getElementById('import-linhas-info').value = importRows.length + ' linhas';
+      document.getElementById('import-summary').style.display = 'block';
+      toast(importRows.length + ' linhas detectadas. Confirme a data da contagem.');
     } catch (err) {
+      console.error(err);
       toast('Erro ao ler arquivo: ' + err.message, 'error');
     }
   });
 
-  function montarLinhas() {
-    const idxSku = parseInt(document.getElementById('map-sku').value);
-    const varRaw = document.getElementById('map-variacao').value;
-    const idxVar = varRaw === '' ? -1 : parseInt(varRaw);
-    const idxQtd = parseInt(document.getElementById('map-quantidade').value);
-    const idxVal = parseInt(document.getElementById('map-valor').value);
-    const valorTotal = document.getElementById('map-valor-total').checked;
-    const dataRaw = document.getElementById('map-data').value;
-    const usarDataFixa = dataRaw === '__FIXA__';
-    const idxData = usarDataFixa ? -1 : parseInt(dataRaw);
-    const dataFixa = document.getElementById('map-data-fixa').value;
-    const extRaw = document.getElementById('map-externalId').value;
-    const idxExt = extRaw === '' ? -1 : parseInt(extRaw);
-    const destino = document.getElementById('map-destino').value;
-    saveJson(KEY_IMPORT_MAP, {
-      sku: idxSku, variacao: idxVar, quantidade: idxQtd, valor: idxVal, valorTotal,
-      data: usarDataFixa ? '__FIXA__' : idxData, dataFixa, externalId: idxExt, destino,
-    });
-    function normSku(s) { return String(s || '').toUpperCase().replace(/\s+/g, '').trim(); }
-    return importRows
-      .filter(r => r.some(c => c !== '' && c != null))
-      .map((r, i) => {
-        const skuPrim = String(r[idxSku] || '').trim();
-        const skuVar = idxVar >= 0 ? String(r[idxVar] || '').trim() : '';
-        const skuFinal = skuVar ? (skuPrim + '-' + skuVar) : skuPrim;
-        const qtdNum = parseInt(String(r[idxQtd] || '').replace(/[^\d-]/g, ''), 10);
-        const valorBruto = parseValorBR(r[idxVal]);
-        const valorUnit = (valorTotal && Number.isFinite(qtdNum) && qtdNum > 0)
-          ? (Number.isFinite(valorBruto) ? valorBruto / qtdNum : NaN)
-          : valorBruto;
-        const dataFinal = usarDataFixa ? dataFixa : parseDataBR(r[idxData]);
-        let externalId = idxExt >= 0 ? String(r[idxExt] || '').trim() : '';
-        if (!externalId && dataFinal && skuFinal) {
-          externalId = 'auto-' + dataFinal + '-' + normSku(skuFinal);
-        }
-        return {
-          sku: skuFinal,
-          quantidade: qtdNum,
-          valor: valorUnit,
-          data: dataFinal,
-          externalId,
-          destino,
-        };
-      });
+  function montarPayloadImport(dryRun) {
+    const dataContagem = document.getElementById('import-data-contagem').value;
+    return {
+      rows: importRows,
+      dataContagem,
+      dataEmissao: importDataEmissao || null,
+      motivo: 'Contagem ERP ' + (dataContagem || ''),
+      dryRun,
+    };
   }
-
-  document.getElementById('map-data').addEventListener('change', atualizarVisibilidadeDataFixa);
 
   document.getElementById('btn-import-preview').addEventListener('click', async () => {
     if (!isAdmin()) { toast('Acesso restrito.', 'error'); return; }
     if (importRows.length === 0) { toast('Selecione um arquivo primeiro.', 'error'); return; }
-    const linhas = montarLinhas();
+    if (!document.getElementById('import-data-contagem').value) { toast('Informe a data da contagem.', 'error'); return; }
     try {
-      const r = await api('POST', '/api/integracao/importar', { rows: linhas, dryRun: true });
+      const r = await api('POST', '/api/integracao/importar', montarPayloadImport(true));
       const div = document.getElementById('import-preview');
       let html = '<div class="info-box" style="background: var(--bg-soft); flex-direction: column; align-items: stretch;">';
       html += '<div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom: 8px;">';
-      html += '<span>✅ Criar: <strong>' + r.criadas + '</strong></span>';
-      html += '<span>🔁 Duplicadas: <strong>' + r.duplicadas + '</strong></span>';
-      html += '<span>❓ SKU não encontrado: <strong>' + r.naoMapeadas + '</strong></span>';
+      html += '<span>📦 Ajustes a criar: <strong>' + r.ajustesCriados + '</strong></span>';
+      html += '<span>🆕 Produtos a auto-cadastrar: <strong>' + r.produtosCriados + '</strong></span>';
+      html += '<span>➕ Tamanhos a adicionar: <strong>' + r.tamanhosAdicionados + '</strong></span>';
+      html += '<span>= Sem diferença: <strong>' + r.semDiferenca + '</strong></span>';
       html += '<span>⚠️ Inválidas: <strong>' + r.invalidas + '</strong></span>';
       html += '</div>';
-      if (r.problemas.length > 0) {
+      if (r.problemas && r.problemas.length > 0) {
         html += '<details style="margin-top:8px;"><summary>Ver ' + r.problemas.length + ' problemas detectados</summary>';
         html += '<div style="max-height: 220px; overflow-y: auto; margin-top: 8px; font-size: 12px;">';
         r.problemas.slice(0, 200).forEach(p => {
-          html += '<div style="padding: 4px 0; border-bottom: 1px solid var(--border);">Linha ' + (p.linha + 1) + ': ' + escHtml(p.motivo) + '</div>';
+          html += '<div style="padding: 4px 0; border-bottom: 1px solid var(--border);">Linha ' + p.linha + ': ' + escHtml(p.motivo) + '</div>';
         });
         if (r.problemas.length > 200) html += '<div style="padding: 4px 0; color: var(--text-mute);">... mais ' + (r.problemas.length - 200) + '</div>';
         html += '</div></details>';
       }
       html += '</div>';
-      if (r.criadas > 0) {
-        html += '<button type="button" id="btn-import-confirmar" class="primary" style="margin-top: 12px;">Confirmar importação de ' + r.criadas + ' venda(s)</button>';
+      if (r.ajustesCriados > 0 || r.produtosCriados > 0) {
+        html += '<button type="button" id="btn-import-confirmar" class="primary" style="margin-top: 12px;">Confirmar importação</button>';
       } else {
-        html += '<p class="helper" style="margin-top: 12px;">Nenhuma venda válida para importar.</p>';
+        html += '<p class="helper" style="margin-top: 12px;">Nada a importar (todos os SKUs já estão com a quantidade contada).</p>';
       }
       div.innerHTML = html;
       div.style.display = 'block';
@@ -1910,39 +2044,70 @@
   });
 
   async function confirmarImportacao() {
-    const linhas = montarLinhas();
     try {
-      const r = await api('POST', '/api/integracao/importar', { rows: linhas, dryRun: false });
-      toast(r.criadas + ' venda(s) importada(s) com sucesso.');
+      const r = await api('POST', '/api/integracao/importar', montarPayloadImport(false));
+      const partes = [];
+      if (r.ajustesCriados) partes.push(r.ajustesCriados + ' contagem(ns)');
+      if (r.produtosCriados) partes.push(r.produtosCriados + ' produto(s) novo(s)');
+      if (r.tamanhosAdicionados) partes.push(r.tamanhosAdicionados + ' tamanho(s)');
+      toast('Importado: ' + (partes.join(', ') || 'nada'));
       document.getElementById('import-preview').style.display = 'none';
-      document.getElementById('import-mapping').style.display = 'none';
+      document.getElementById('import-summary').style.display = 'none';
       document.getElementById('import-file').value = '';
-      importHeaders = []; importRows = [];
+      importRows = [];
+      importDataEmissao = '';
     } catch (ex) { toast(ex.message, 'error'); }
   }
 
-  function renderErpSaidas() {
-    const tb = document.querySelector('#tbl-erp-saidas tbody');
+  function renderErpContagens() {
+    const tb = document.querySelector('#tbl-erp-contagens tbody');
     if (!tb) return;
-    const erpSaidas = saidas.filter(s => s.origem === 'erp-import')
+    const erpAjustes = ajustes.filter(a => a.origem === 'erp-import')
       .sort((a, b) => (b.data || '').localeCompare(a.data || '') || b.id.localeCompare(a.id))
       .slice(0, 100);
-    if (erpSaidas.length === 0) {
-      tb.innerHTML = '<tr><td colspan="6" class="empty">Nenhuma saída via ERP ainda.</td></tr>';
+    if (erpAjustes.length === 0) {
+      tb.innerHTML = '<tr><td colspan="7" class="empty">Nenhuma contagem importada via ERP ainda.</td></tr>';
       return;
     }
-    tb.innerHTML = erpSaidas.map(s => {
-      const p = produtos.find(p => p.codigo === s.codigo);
-      return '<tr><td>' + fmtData(s.data) + '</td><td class="code">' + fmtCodigo(s.codigo) + '</td><td>' + escHtml(p ? p.item : '—') + '</td><td class="num">' + fmtNum(s.quantidade) + '</td><td class="num">' + fmtBRL(s.valor) + '</td><td>' + escHtml(s.externalId || '—') + '</td></tr>';
+    tb.innerHTML = erpAjustes.map(a => {
+      const p = produtos.find(p => p.codigo === a.codigo);
+      const cls = a.diferenca > 0 ? 'pill-pos' : (a.diferenca < 0 ? 'pill-neg' : 'pill-zero');
+      return '<tr><td>' + fmtData(a.data) + '</td><td class="code">' + fmtSkuCodigo(a.codigo, a.tamanho) + '</td><td>' + escHtml(p ? p.item : '—') + '</td><td>' + escHtml(a.tamanho || '—') + '</td><td class="num">' + fmtNum(a.qtdAnterior) + '</td><td class="num">' + fmtNum(a.qtdContada) + '</td><td class="num"><span class="pill ' + cls + '">' + fmtSign(a.diferenca) + '</span></td></tr>';
     }).join('');
   }
 
+  const SEED_CONTAGEM_INICIAL = 300;
   async function ensureCatalogoSeed() {
     if (produtos.length > 0) return;
     if (!isAdmin()) return;
     try {
       const lista = gerarProdutos();
       await api('POST', '/api/seed-produtos', { produtos: lista });
+      // Contagem inicial: SEED_CONTAGEM_INICIAL unidades em cada (codigo, tamanho)
+      const hoje = new Date().toISOString().slice(0, 10);
+      const rows = [];
+      lista.forEach(p => {
+        (p.tamanhos || []).forEach(t => {
+          rows.push({
+            codigo: p.codigo,
+            tamanho: t,
+            quantidade: SEED_CONTAGEM_INICIAL,
+            tipo: p.tipo,
+            cor: p.corAbrev || p.cor,
+            descricao: p.descricaoErp || p.item,
+            preco: p.preco,
+          });
+        });
+      });
+      if (rows.length > 0) {
+        await api('POST', '/api/integracao/importar', {
+          rows,
+          dataContagem: hoje,
+          dataEmissao: hoje,
+          motivo: 'Contagem inicial automática (' + SEED_CONTAGEM_INICIAL + ' un./SKU)',
+          dryRun: false,
+        });
+      }
     } catch (err) {
       if (err.status !== 409) console.error('seed:', err);
     }
@@ -2037,14 +2202,15 @@
     ev.preventDefault();
     const fd = new FormData(ev.target);
     const codigo = parseInt(fd.get('codigo'));
+    const tamanho = (fd.get('tamanho') || '').toString().trim().toUpperCase();
     const data = fd.get('data');
     const quantidade = parseInt(fd.get('quantidade'));
     const custo = parseFloat(fd.get('custo'));
-    if (!codigo || !quantidade || isNaN(custo)) { toast('Preencha todos os campos.', 'error'); return; }
+    if (!codigo || !tamanho || !quantidade || isNaN(custo)) { toast('Preencha todos os campos (incluindo o tamanho).', 'error'); return; }
     try {
-      await api('POST', '/api/entrada', { codigo, data, quantidade, custo });
+      await api('POST', '/api/entrada', { codigo, tamanho, data, quantidade, custo });
       const p = produtos.find(p => p.codigo === codigo);
-      toast('Entrada registrada: ' + quantidade + ' × ' + (p ? p.item : codigo));
+      toast('Entrada registrada: ' + quantidade + ' × ' + (p ? p.item : codigo) + ' [' + tamanho + ']');
       ev.target.querySelector('input[name=quantidade]').value = '';
     } catch (ex) { toast(ex.message, 'error'); }
   });
@@ -2053,16 +2219,17 @@
     ev.preventDefault();
     const fd = new FormData(ev.target);
     const codigo = parseInt(fd.get('codigo'));
+    const tamanho = (fd.get('tamanho') || '').toString().trim().toUpperCase();
     const data = fd.get('data');
     const quantidade = parseInt(fd.get('quantidade'));
     const valor = parseFloat(fd.get('valor'));
     const destino = fd.get('destino') || 'cliente';
-    if (!codigo || !quantidade || isNaN(valor)) { toast('Preencha todos os campos.', 'error'); return; }
+    if (!codigo || !tamanho || !quantidade || isNaN(valor)) { toast('Preencha todos os campos (incluindo o tamanho).', 'error'); return; }
     if (!DESTINOS[destino]) { toast('Destino inválido.', 'error'); return; }
     try {
-      await api('POST', '/api/saida', { codigo, data, quantidade, valor, destino });
+      await api('POST', '/api/saida', { codigo, tamanho, data, quantidade, valor, destino });
       const p = produtos.find(p => p.codigo === codigo);
-      toast('Saída registrada: ' + quantidade + ' × ' + (p ? p.item : codigo) + ' → ' + DESTINOS[destino].label);
+      toast('Saída registrada: ' + quantidade + ' × ' + (p ? p.item : codigo) + ' [' + tamanho + '] → ' + DESTINOS[destino].label);
       ev.target.querySelector('input[name=quantidade]').value = '';
     } catch (ex) { toast(ex.message, 'error'); }
   });
@@ -2071,15 +2238,16 @@
     ev.preventDefault();
     const fd = new FormData(ev.target);
     const codigo = parseInt(fd.get('codigo'));
+    const tamanho = (fd.get('tamanho') || '').toString().trim().toUpperCase();
     const data = fd.get('data');
     const contado = parseInt(fd.get('contado'));
     const motivo = (fd.get('motivo') || '').toString().trim();
-    if (!codigo || isNaN(contado) || contado < 0) { toast('Preencha todos os campos com valores válidos.', 'error'); return; }
+    if (!codigo || !tamanho || isNaN(contado) || contado < 0) { toast('Preencha todos os campos com valores válidos (incluindo o tamanho).', 'error'); return; }
     try {
-      await api('POST', '/api/ajuste', { codigo, data, contado, motivo });
+      await api('POST', '/api/ajuste', { codigo, tamanho, data, contado, motivo });
       const p = produtos.find(p => p.codigo === codigo);
-      const dif = contado - calcEstoque(codigo).total;
-      toast('Ajuste registrado: ' + (p ? p.item : codigo) + ' (' + fmtSign(dif) + ').');
+      const dif = contado - calcEstoque(codigo, tamanho).total;
+      toast('Ajuste registrado: ' + (p ? p.item : codigo) + ' [' + tamanho + '] (' + fmtSign(dif) + ').');
       ev.target.querySelector('input[name=contado]').value = '';
       ev.target.querySelector('input[name=motivo]').value = '';
     } catch (ex) { toast(ex.message, 'error'); }
@@ -2093,15 +2261,17 @@
     const item = (fd.get('item') || '').toString().trim();
     const tipo = (fd.get('tipo') || '').toString().trim().toUpperCase();
     const cor = (fd.get('cor') || '').toString().trim().toUpperCase();
-    const tamanho = (fd.get('tamanho') || '').toString().trim().toUpperCase();
+    const tamanhos = lerTamanhosChecks('prod-tamanhos-checks');
     const preco = parseFloat(fd.get('preco'));
     if (!codigo || !item || isNaN(preco)) { toast('Preencha código, nome e preço.', 'error'); return; }
+    if (tamanhos.length === 0) { toast('Selecione ao menos um tamanho disponível.', 'error'); return; }
     try {
-      await api('POST', '/api/produto', { codigo, item, tipo, cor, tamanho, preco });
+      await api('POST', '/api/produto', { codigo, item, tipo, cor, tamanhos, preco });
       toast('Produto cadastrado: ' + codigo + ' — ' + item);
       ev.target.reset();
       document.querySelector('#form-produto input[name=codigo]').value = proximoCodigo();
       document.querySelector('#form-produto input[name=preco]').value = PRECO_PADRAO.toFixed(2);
+      renderTamanhosChecks('prod-tamanhos-checks', []);
     } catch (ex) { toast(ex.message, 'error'); }
   });
 
@@ -2151,7 +2321,21 @@
     } catch (ex) { toast(ex.message, 'error'); }
   });
 
+  // Atualiza select de tamanho quando produto muda nos formulários
+  function bindTamanhoSync(formId) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+    const codSel = form.querySelector('select[name=codigo]');
+    const tamSel = form.querySelector('select[name=tamanho]');
+    if (!codSel || !tamSel) return;
+    codSel.addEventListener('change', () => atualizarSelectTamanho(form, codSel, tamSel));
+  }
+  bindTamanhoSync('form-entrada');
+  bindTamanhoSync('form-saida');
+  bindTamanhoSync('form-ajuste');
+
   document.querySelector('#form-ajuste select[name=codigo]').addEventListener('change', atualizarInfoAjuste);
+  document.querySelector('#form-ajuste select[name=tamanho]').addEventListener('change', atualizarInfoAjuste);
   document.querySelector('#form-ajuste input[name=contado]').addEventListener('input', atualizarInfoAjuste);
 
   const refreshEstoqueView = () => { updateDashboard(); renderEstoque(); };
@@ -2159,7 +2343,8 @@
   document.getElementById('f-status').addEventListener('change', refreshEstoqueView);
   document.getElementById('f-tipo').addEventListener('change', refreshEstoqueView);
   document.getElementById('f-search-prod').addEventListener('input', renderProdutos);
-  document.getElementById('fifo-prod').addEventListener('change', renderFIFO);
+  document.getElementById('fifo-prod').addEventListener('change', () => { atualizarFifoTamanhos(); renderFIFO(); });
+  document.getElementById('fifo-tam').addEventListener('change', renderFIFO);
 
   function navigate(view) {
     if ((view === 'config' || view === 'usuarios' || view === 'integracoes') && !isAdmin()) {
@@ -2167,7 +2352,7 @@
       return;
     }
     if (view === 'usuarios') carregarUsuarios();
-    if (view === 'integracoes') renderErpSaidas();
+    if (view === 'integracoes') renderErpContagens();
     document.querySelectorAll('.app-section').forEach(s => s.classList.remove('active'));
     const target = document.getElementById('view-' + view);
     if (target) target.classList.add('active');
@@ -2193,8 +2378,8 @@
     f.item.value = p.item || '';
     f.tipo.value = p.tipo || '';
     f.cor.value = p.cor || '';
-    f.tamanho.value = p.tamanho || '';
     f.preco.value = (p.preco || 0).toFixed(2);
+    renderTamanhosChecks('edit-tamanhos-checks', Array.isArray(p.tamanhos) ? p.tamanhos : []);
     document.getElementById('modal-edit').style.display = 'flex';
     setTimeout(() => f.item.focus(), 50);
   }
@@ -2209,11 +2394,12 @@
     const item = (fd.get('item') || '').toString().trim();
     const tipo = (fd.get('tipo') || '').toString().trim().toUpperCase();
     const cor = (fd.get('cor') || '').toString().trim().toUpperCase();
-    const tamanho = (fd.get('tamanho') || '').toString().trim().toUpperCase();
+    const tamanhos = lerTamanhosChecks('edit-tamanhos-checks');
     const preco = parseFloat(fd.get('preco'));
     if (!item || isNaN(preco)) { toast('Nome e preço são obrigatórios.', 'error'); return; }
+    if (tamanhos.length === 0) { toast('Selecione ao menos um tamanho disponível.', 'error'); return; }
     try {
-      await api('PUT', '/api/produto/' + codigo, { item, tipo, cor, tamanho, preco });
+      await api('PUT', '/api/produto/' + codigo, { item, tipo, cor, tamanhos, preco });
       toast('Produto atualizado: ' + codigo + ' — ' + item);
       fecharModalEdit();
     } catch (ex) { toast(ex.message, 'error'); }
@@ -2306,13 +2492,28 @@
   });
 
   function exportCSV() {
-    const headers = ['Codigo','Item','Tipo','Cor','Tamanho','Entradas','Saidas','Ajustes','Estoque','CMP','Valor estoque','Status'];
+    const headers = ['Codigo','Item','Tipo','Cor','Tamanho','Contagem','Data contagem','Entradas','Saidas','Estoque','CMP','Valor estoque','Status'];
     const linhas = [headers.join(';')];
-    produtos.slice().sort((a,b) => a.codigo - b.codigo).forEach(p => {
-      const est = calcEstoque(p.codigo);
-      const cmp = calcCMP(p.codigo);
+    listarSkus().forEach(({ produto: p, tamanho }) => {
+      const est = calcEstoque(p.codigo, tamanho);
+      const cmp = calcCMP(p.codigo, tamanho);
+      const ult = ultimaContagem(p.codigo, tamanho);
       const status = est.total <= config.estoqueMin ? 'Estoque minimo' : (config.estoqueMax > 0 && est.total > config.estoqueMax ? 'Estoque excedente' : 'Estoque ok');
-      linhas.push([fmtCodigo(p.codigo), p.item, p.tipo || '', p.cor || '', p.tamanho || '', est.entradas, est.saidas, est.ajustes, est.total, cmp.toFixed(2), (est.total * cmp).toFixed(2), status].join(';'));
+      linhas.push([
+        fmtSkuCodigo(p.codigo, tamanho),
+        p.item,
+        p.tipo || '',
+        p.cor || '',
+        tamanho,
+        ult ? ult.qtdContada : '',
+        ult ? ult.data : '',
+        est.entradas,
+        est.saidas,
+        est.total,
+        cmp.toFixed(2),
+        (est.total * cmp).toFixed(2),
+        status,
+      ].join(';'));
     });
     const blob = new Blob(['\ufeff' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
