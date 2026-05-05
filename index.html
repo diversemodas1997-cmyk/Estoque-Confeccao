@@ -878,7 +878,7 @@
 
     <div class="card" style="margin-top: 18px;">
       <h2>Histórico de saídas via ERP</h2>
-      <p class="helper">Últimas 100 saídas registradas via importação do relatório do ERP. Valor = R$ 0,00 (CMV calculado pelo programa via FIFO).</p>
+      <p class="helper">Últimas 100 saídas registradas via importação do relatório do ERP. Valor = R$ 0,00 (CMV calculado pelo programa via Custo Médio Ponderado).</p>
       <div class="table-wrap" style="max-height: 420px;">
         <table id="tbl-erp-contagens">
           <thead><tr><th>Data</th><th>Cód.</th><th>Item</th><th>Tam.</th><th class="num">Qtd</th><th class="num">Valor</th></tr></thead>
@@ -944,9 +944,9 @@
   </section>
 
   <section id="view-fifo" class="app-section">
-    <h2 class="section-title">Relatório FIFO (PEPS)</h2>
+    <h2 class="section-title">Relatório CMP (Custo Médio Ponderado)</h2>
     <div class="card">
-      <p class="helper">Custo de cada saída calculado pelo método Primeiro a Entrar, Primeiro a Sair. Ajustes de inventário não entram no cálculo.</p>
+      <p class="helper">Custo de cada saída calculado pelo método de Custo Médio Ponderado: a cada entrada o custo médio do estoque é recalculado como média ponderada entre o estoque atual e a nova entrada. Saídas usam o custo médio vigente (sem alterar a média). Ajustes de inventário não entram no cálculo.</p>
       <div style="display: flex; gap: 8px; margin-bottom: 10px;">
         <select id="fifo-prod" style="flex: 2;"></select>
         <select id="fifo-tam" style="flex: 1;">
@@ -955,7 +955,7 @@
       </div>
       <div class="info-box">
         <span>Saldo qtd: <strong id="fifo-saldo-qtd">0</strong></span>
-        <span>Saldo valor (PEPS): <strong id="fifo-saldo-val">R$ 0,00</strong></span>
+        <span>Saldo valor (CMP): <strong id="fifo-saldo-val">R$ 0,00</strong></span>
         <span>CMV acumulado: <strong id="fifo-custo-saidas">R$ 0,00</strong></span>
       </div>
       <div class="table-wrap" style="max-height: 460px;">
@@ -1528,7 +1528,7 @@
     document.querySelector('#form-ajuste select[name=tamanho]').innerHTML = placeholderTam;
     const fifoSel = document.getElementById('fifo-prod');
     const atualFifo = fifoSel.value;
-    fifoSel.innerHTML = '<option value="">Selecione um produto para ver o relatório FIFO...</option>' + opts;
+    fifoSel.innerHTML = '<option value="">Selecione um produto para ver o relatório CMP...</option>' + opts;
     if (atualFifo && produtos.some(p => String(p.codigo) === atualFifo)) fifoSel.value = atualFifo;
     const today = new Date().toISOString().slice(0, 10);
     document.querySelector('#form-entrada input[name=data]').value = today;
@@ -1612,7 +1612,9 @@
     t._timer = setTimeout(() => { t.style.display = 'none'; }, 3000);
   }
 
-  function calcFIFO(codigo, tamanho) {
+  // Custo Médio Ponderado (CMP): a cada entrada, o custo médio é recalculado pela média
+  // ponderada entre o estoque atual e a nova entrada. Saídas usam o custo médio vigente.
+  function calcCMP(codigo, tamanho) {
     const matchSku = (x) => x.codigo === codigo && (tamanho == null || x.tamanho === tamanho);
     const ents = entradas.filter(matchSku).map(e => ({ data: e.data, id: e.id, _kind: 'ent', quantidade: e.quantidade, custo: e.custo, tamanho: e.tamanho }));
     const sais = saidas.filter(matchSku).map(s => ({ data: s.data, id: s.id, _kind: 'sai', quantidade: s.quantidade, destino: s.destino, tamanho: s.tamanho }));
@@ -1622,39 +1624,39 @@
       if (a._kind !== b._kind) return a._kind === 'ent' ? -1 : 1;
       return (a.id || '').localeCompare(b.id || '');
     });
-    const lotes = [];
-    const linhas = [];
+    let saldoQtd = 0;
+    let custoMedio = 0;
     let cmvAcumulado = 0;
+    const linhas = [];
     eventos.forEach(ev => {
       if (ev._kind === 'ent') {
-        lotes.push({ qtd: ev.quantidade, custo: ev.custo });
-        const saldoQtd = lotes.reduce((s, l) => s + l.qtd, 0);
-        const saldoVal = lotes.reduce((s, l) => s + l.qtd * l.custo, 0);
-        linhas.push({ data: ev.data, tipo: 'Entrada', tamanho: ev.tamanho, qtdEnt: ev.quantidade, custoEnt: ev.custo, totalEnt: ev.quantidade * ev.custo, qtdSai: null, custoSai: null, totalSai: null, saldoQtd, saldoVal });
+        const valorAntes = saldoQtd * custoMedio;
+        const valorEntrada = ev.quantidade * ev.custo;
+        const novaQtd = saldoQtd + ev.quantidade;
+        custoMedio = novaQtd > 0 ? (valorAntes + valorEntrada) / novaQtd : 0;
+        saldoQtd = novaQtd;
+        linhas.push({
+          data: ev.data, tipo: 'Entrada', tamanho: ev.tamanho,
+          qtdEnt: ev.quantidade, custoEnt: ev.custo, totalEnt: valorEntrada,
+          qtdSai: null, custoSai: null, totalSai: null,
+          saldoQtd, custoMedio, saldoVal: saldoQtd * custoMedio,
+        });
       } else {
-        let restante = ev.quantidade;
-        let custoTotal = 0;
-        let qtdConsumida = 0;
-        while (restante > 0 && lotes.length > 0) {
-          const l = lotes[0];
-          const tirar = Math.min(restante, l.qtd);
-          custoTotal += tirar * l.custo;
-          qtdConsumida += tirar;
-          l.qtd -= tirar;
-          restante -= tirar;
-          if (l.qtd === 0) lotes.shift();
-        }
-        const custoMedio = qtdConsumida > 0 ? custoTotal / qtdConsumida : 0;
-        cmvAcumulado += custoTotal;
-        const saldoQtd = lotes.reduce((s, l) => s + l.qtd, 0);
-        const saldoVal = lotes.reduce((s, l) => s + l.qtd * l.custo, 0);
+        const qtdSai = Math.min(ev.quantidade, saldoQtd);
+        const totalSai = qtdSai * custoMedio;
+        cmvAcumulado += totalSai;
+        saldoQtd -= qtdSai;
+        // Custo médio NÃO muda em saída no método CMP — a média continua a mesma.
         const di = destinoInfo(ev.destino);
-        linhas.push({ data: ev.data, tipo: 'Saída → ' + di.label, tamanho: ev.tamanho, qtdEnt: null, custoEnt: null, totalEnt: null, qtdSai: ev.quantidade, custoSai: custoMedio, totalSai: custoTotal, saldoQtd, saldoVal });
+        linhas.push({
+          data: ev.data, tipo: 'Saída → ' + di.label, tamanho: ev.tamanho,
+          qtdEnt: null, custoEnt: null, totalEnt: null,
+          qtdSai: ev.quantidade, custoSai: custoMedio, totalSai,
+          saldoQtd, custoMedio, saldoVal: saldoQtd * custoMedio,
+        });
       }
     });
-    const saldoQtd = lotes.reduce((s, l) => s + l.qtd, 0);
-    const saldoVal = lotes.reduce((s, l) => s + l.qtd * l.custo, 0);
-    return { linhas, saldoQtd, saldoVal, cmvAcumulado };
+    return { linhas, saldoQtd, saldoVal: saldoQtd * custoMedio, custoMedio, cmvAcumulado };
   }
 
   function atualizarFifoTamanhos() {
@@ -1668,7 +1670,7 @@
     if (previo && tams.includes(previo)) tamSel.value = previo;
   }
 
-  function renderFIFO() {
+  function renderCMP() {
     const sel = document.getElementById('fifo-prod');
     const tamSel = document.getElementById('fifo-tam');
     const codigo = parseInt(sel.value);
@@ -1684,7 +1686,7 @@
       elCmv.textContent = fmtBRL(0);
       return;
     }
-    const r = calcFIFO(codigo, tamanho);
+    const r = calcCMP(codigo, tamanho);
     elQtd.textContent = fmtNum(r.saldoQtd);
     elVal.textContent = fmtBRL(r.saldoVal);
     elCmv.textContent = fmtBRL(r.cmvAcumulado);
@@ -1714,7 +1716,7 @@
     renderEstoque();
     renderProdutos();
     renderHistorico();
-    renderFIFO();
+    renderCMP();
     atualizarInfoAjuste();
   }
 
@@ -2401,8 +2403,8 @@
   document.getElementById('f-status').addEventListener('change', refreshEstoqueView);
   document.getElementById('f-tipo').addEventListener('change', refreshEstoqueView);
   document.getElementById('f-search-prod').addEventListener('input', renderProdutos);
-  document.getElementById('fifo-prod').addEventListener('change', () => { atualizarFifoTamanhos(); renderFIFO(); });
-  document.getElementById('fifo-tam').addEventListener('change', renderFIFO);
+  document.getElementById('fifo-prod').addEventListener('change', () => { atualizarFifoTamanhos(); renderCMP(); });
+  document.getElementById('fifo-tam').addEventListener('change', renderCMP);
 
   function navigate(view) {
     if ((view === 'config' || view === 'usuarios' || view === 'integracoes') && !isAdmin()) {
