@@ -34,19 +34,66 @@ const DEFAULT_STATE = {
 const CONTAGEM_INICIAL_PADRAO = 300;
 const CONTAGEM_INICIAL_MOTIVO_PREFIX = 'Contagem inicial';
 
-// Mapa item → código ERP canônico, usado pra escolher o produto canônico em casos de duplicata
-// (deve refletir ERP_CATALOGO no client).
-const ERP_CODIGO_PREFERIDO = {
-  'PM.LISA-PRE': 12, 'PM.LISA-BEGE': 13, 'PM.LISA-ROXO': 14, 'PM.LISA-BRA': 15, 'PM.LISA-AZUL': 16,
-  'CM.LISA-PRE': 17, 'CM.LISA-BEGE': 18, 'CM.LISA-ROXO': 19, 'CM.LISA-BRA': 20, 'CM.LISA-VERM': 21,
-  'CM.LISA-VERDE': 22, 'CM.LISA-GRAF': 23, 'CM.LISA-MARINHO': 24, 'CM.LISA-MARROM': 25,
-  'CM.TRI.LISA-CAQUI': 26, 'SM.LISA-PRE': 27, 'SM.LISA-BEGE': 28, 'SM.LISA-CINZA': 29,
-  'SM.LISA-BRA': 30, 'SM.LISA-MARINHO': 31, 'SM.LISA-MARROM': 32, 'BM.LISA-PRE': 33,
-  'BM.LISA-MARROM': 39, 'BM.LISA-MOSTARDA': 40, 'CM.TRI.LISA-VERDE': 41, 'CM.REC.LISA-VERDE': 42,
-  'CM.REC.LISA-VERM': 43, 'CM.REC.LISA-PRE': 44, 'CM.TRI.LISA-PRE': 51, 'CM.TRI.LISA-BRA': 52,
-  'CM.REC.LISA-ROXO': 53, 'BERM-BRA': 58, 'BERM-MAR': 62, 'BM.TRI-VERDE': 64, 'BM.TRI-BEGE': 65,
-  'PM.TRI.LISA-PRE': 67,
-};
+// Catálogo canônico ERP — fonte de verdade pra criação de produtos faltantes e dedup.
+// Mantém em sincronia com ERP_CATALOGO no client.
+const ERP_CATALOGO = [
+  { codigo: 12, tipo: 'PM.LISA',     cor: 'PRE'     },
+  { codigo: 13, tipo: 'PM.LISA',     cor: 'BEGE'    },
+  { codigo: 14, tipo: 'PM.LISA',     cor: 'ROXO'    },
+  { codigo: 15, tipo: 'PM.LISA',     cor: 'BRA'     },
+  { codigo: 16, tipo: 'PM.LISA',     cor: 'AZUL'    },
+  { codigo: 17, tipo: 'CM.LISA',     cor: 'PRE'     },
+  { codigo: 18, tipo: 'CM.LISA',     cor: 'BEGE'    },
+  { codigo: 19, tipo: 'CM.LISA',     cor: 'ROXO'    },
+  { codigo: 20, tipo: 'CM.LISA',     cor: 'BRA'     },
+  { codigo: 21, tipo: 'CM.LISA',     cor: 'VERM'    },
+  { codigo: 22, tipo: 'CM.LISA',     cor: 'VERDE'   },
+  { codigo: 23, tipo: 'CM.LISA',     cor: 'GRAF'    },
+  { codigo: 24, tipo: 'CM.LISA',     cor: 'MARINHO' },
+  { codigo: 25, tipo: 'CM.LISA',     cor: 'MARROM'  },
+  { codigo: 26, tipo: 'CM.TRI.LISA', cor: 'CAQUI'   },
+  { codigo: 27, tipo: 'SM.LISA',     cor: 'PRE'     },
+  { codigo: 28, tipo: 'SM.LISA',     cor: 'BEGE'    },
+  { codigo: 29, tipo: 'SM.LISA',     cor: 'CINZA'   },
+  { codigo: 30, tipo: 'SM.LISA',     cor: 'BRA'     },
+  { codigo: 31, tipo: 'SM.LISA',     cor: 'MARINHO' },
+  { codigo: 32, tipo: 'SM.LISA',     cor: 'MARROM'  },
+  { codigo: 33, tipo: 'BM.LISA',     cor: 'PRE'     },
+  { codigo: 34, tipo: 'BM.LISA',     cor: 'BEGE'    },
+  { codigo: 35, tipo: 'BM.LISA',     cor: 'ROXO'    },
+  { codigo: 36, tipo: 'BM.LISA',     cor: 'BRA'     },
+  { codigo: 37, tipo: 'BM.LISA',     cor: 'VERM'    },
+  { codigo: 38, tipo: 'BM.LISA',     cor: 'VERDE'   },
+  { codigo: 39, tipo: 'BM.LISA',     cor: 'MARROM'  },
+  { codigo: 40, tipo: 'BM.LISA',     cor: 'MOSTARDA'},
+  { codigo: 41, tipo: 'CM.TRI.LISA', cor: 'VERDE'   },
+  { codigo: 42, tipo: 'CM.REC.LISA', cor: 'VERDE'   },
+  { codigo: 43, tipo: 'CM.REC.LISA', cor: 'VERM'    },
+  { codigo: 44, tipo: 'CM.REC.LISA', cor: 'PRE'     },
+  { codigo: 51, tipo: 'CM.TRI.LISA', cor: 'PRE'     },
+  { codigo: 52, tipo: 'CM.TRI.LISA', cor: 'BRA'     },
+  { codigo: 53, tipo: 'CM.REC.LISA', cor: 'ROXO'    },
+  { codigo: 54, tipo: 'CONJINF',     cor: 'GRAF'    },
+  { codigo: 55, tipo: 'CONJINF',     cor: 'MARSALA' },
+  { codigo: 56, tipo: 'CONJINF',     cor: 'MESCLA'  },
+  { codigo: 57, tipo: 'BERM',        cor: 'PRE'     },
+  { codigo: 58, tipo: 'BERM',        cor: 'BRA'     },
+  { codigo: 59, tipo: 'BERM',        cor: 'MESCLA'  },
+  { codigo: 60, tipo: 'SF.BERM.FEM', cor: 'PRE'     },
+  { codigo: 61, tipo: 'SF.BERM.FEM', cor: 'MARINHO' },
+  { codigo: 62, tipo: 'BERM',        cor: 'MAR'     },
+  { codigo: 63, tipo: 'BERM',        cor: 'GRA'     },
+  { codigo: 64, tipo: 'BM.TRI',      cor: 'VERDE'   },
+  { codigo: 65, tipo: 'BM.TRI',      cor: 'BEGE'    },
+  { codigo: 66, tipo: 'BM.TRI',      cor: 'AZUL'    },
+  { codigo: 67, tipo: 'PM.TRI.LISA', cor: 'PRE'     },
+  { codigo: 68, tipo: 'CM.BLACK',    cor: 'PRE'     },
+];
+
+// Mapa item → código ERP, usado pra escolher o produto canônico em casos de duplicata.
+const ERP_CODIGO_PREFERIDO = Object.fromEntries(
+  ERP_CATALOGO.map(e => [e.tipo + '-' + e.cor, e.codigo])
+);
 
 // Apelidos de tipo do ERP → tipo canônico do programa (espelha TIPO_ALIASES no client).
 const TIPO_ALIASES = {
@@ -246,7 +293,35 @@ function loadState() {
     }
     if (duplicatasRemovidas > 0) console.log('[state] dedup:', duplicatasRemovidas, 'produto(s) duplicado(s) removido(s),', refsRemapeadas, 'referência(s) remapeada(s)');
 
-    let dirty = migradosVazio > 0 || reordenados > 0 || itensCorrigidos > 0 || legadosLimpos > 0 || tiposCanonicalizados > 0 || duplicatasRemovidas > 0;
+    // Migração: garante que todos os produtos canônicos do ERP_CATALOGO existem.
+    // Roda DEPOIS do dedup pra não conflitar com codigos reaproveitados. Cria produtos
+    // faltantes com todos os tamanhos e custom: false (pra distinguir de cadastros manuais).
+    const codigosExistentes = new Set(produtos.map(p => p.codigo));
+    const TAMS_PADRAO = TAMANHOS_ORDEM.slice();
+    let cadastrosCriados = 0;
+    ERP_CATALOGO.forEach(e => {
+      if (codigosExistentes.has(e.codigo)) return;
+      // Verifica também se o item já existe sob outro código (não duplicar)
+      const itemKey = e.tipo + '-' + e.cor;
+      if (produtos.some(p => p.item === itemKey)) return;
+      produtos.push({
+        codigo: e.codigo,
+        item: itemKey,
+        tipo: e.tipo,
+        cor: e.cor,
+        tamanhos: TAMS_PADRAO.slice(),
+        preco: 19.90,
+        custom: false,
+      });
+      codigosExistentes.add(e.codigo);
+      cadastrosCriados++;
+    });
+    if (cadastrosCriados > 0) {
+      produtos.sort((a, b) => a.codigo - b.codigo);
+      console.log('[state] cadastrou', cadastrosCriados, 'produto(s) canônico(s) faltante(s) do ERP_CATALOGO');
+    }
+
+    let dirty = migradosVazio > 0 || reordenados > 0 || itensCorrigidos > 0 || legadosLimpos > 0 || tiposCanonicalizados > 0 || duplicatasRemovidas > 0 || cadastrosCriados > 0;
     // Migração: para QUALQUER (codigo, tamanho) sem ajuste registrado, cria 300 un. de
     // contagem inicial. Cobre tanto produtos auto-cadastrados quanto produtos manuais
     // ou seed que ficaram sem ajuste por algum motivo (seed parcial, deploy migrado, etc.).
