@@ -31,7 +31,18 @@ const DEFAULT_STATE = {
 };
 
 const DESTINOS_VALIDOS = new Set(['cliente', 'cancelamento', 'devolucao', 'defeitos']);
-const TAMANHOS_VALIDOS = new Set(['P', 'M', 'G', 'GG', 'G1', 'G2', 'G3']);
+const TAMANHOS_ORDEM = ['P', 'M', 'G', 'GG', 'G1', 'G2', 'G3'];
+const TAMANHOS_VALIDOS = new Set(TAMANHOS_ORDEM);
+const TAMANHOS_RANK = Object.fromEntries(TAMANHOS_ORDEM.map((t, i) => [t, i]));
+
+function ordenarTamanhos(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.slice().sort((a, b) => {
+    const ra = TAMANHOS_RANK[a] != null ? TAMANHOS_RANK[a] : 999;
+    const rb = TAMANHOS_RANK[b] != null ? TAMANHOS_RANK[b] : 999;
+    return ra - rb;
+  });
+}
 
 function ensureDirs() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -46,9 +57,29 @@ function loadState() {
   try {
     const raw = fs.readFileSync(STATE_FILE, 'utf8');
     const data = JSON.parse(raw);
+    const produtos = Array.isArray(data.produtos) ? data.produtos : [];
+    // Migração: produtos com tamanhos vazios ou ausentes recebem todos os tamanhos padrão.
+    // Cobre auto-cadastros antigos do ERP que herdavam só os tamanhos vistos no relatório.
+    const TODOS_TAMS = TAMANHOS_ORDEM.slice();
+    let migradosVazio = 0, reordenados = 0;
+    produtos.forEach(p => {
+      if (!Array.isArray(p.tamanhos) || p.tamanhos.length === 0) {
+        p.tamanhos = TODOS_TAMS.slice();
+        migradosVazio++;
+      } else {
+        const ordenado = ordenarTamanhos(p.tamanhos);
+        const era = p.tamanhos.join(',');
+        if (ordenado.join(',') !== era) {
+          p.tamanhos = ordenado;
+          reordenados++;
+        }
+      }
+    });
+    if (migradosVazio > 0) console.log('[state] preencheu tamanhos em', migradosVazio, 'produto(s) vazio(s)');
+    if (reordenados > 0) console.log('[state] reordenou tamanhos em', reordenados, 'produto(s)');
     return {
       versao: data.versao || 3,
-      produtos: Array.isArray(data.produtos) ? data.produtos : [],
+      produtos,
       entradas: Array.isArray(data.entradas) ? data.entradas : [],
       saidas: Array.isArray(data.saidas) ? data.saidas : [],
       ajustes: Array.isArray(data.ajustes) ? data.ajustes : [],
@@ -178,7 +209,7 @@ function normalizeTamanhos(arr) {
     const n = asTamanho(t);
     if (n && !out.includes(n)) out.push(n);
   }
-  return out;
+  return ordenarTamanhos(out);
 }
 
 const app = express();
@@ -456,12 +487,14 @@ app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res)
       return null;
     }
     const item = tipo + '-' + cor;
+    // Auto-cadastro pré-popula TODOS os tamanhos padrão; tamanhos não mencionados
+    // no relatório ainda estarão disponíveis pra movimentação manual depois.
     p = {
       codigo,
       item,
       tipo,
       cor,
-      tamanhos: [],
+      tamanhos: Array.from(TAMANHOS_VALIDOS),
       preco: Number.isFinite(preco) && preco > 0 ? preco : 0,
       custom: true,
       autoCadastro: true,
@@ -476,6 +509,7 @@ app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res)
     if (!produto.tamanhos) produto.tamanhos = [];
     if (produto.tamanhos.includes(tamanho)) return false;
     produto.tamanhos.push(tamanho);
+    produto.tamanhos = ordenarTamanhos(produto.tamanhos);
     if (!novosProdutos.includes(produto)) {
       const key = produto.codigo;
       if (!tamanhosPendentes.has(key)) tamanhosPendentes.set(key, new Set());
@@ -550,6 +584,7 @@ app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res)
       if (!p) continue;
       if (!Array.isArray(p.tamanhos)) p.tamanhos = [];
       for (const t of set) if (!p.tamanhos.includes(t)) p.tamanhos.push(t);
+      p.tamanhos = ordenarTamanhos(p.tamanhos);
     }
     if (novasSaidas.length > 0) state.saidas.push(...novasSaidas);
     if (novosAjustes.length > 0) state.ajustes.push(...novosAjustes);
