@@ -1834,20 +1834,29 @@
     const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
     const linhas = [];
     let dataEmissao = '';
+    const Y_TOL = 3; // tolerância de Y para agrupar items na mesma linha
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const tc = await page.getTextContent();
-      // Agrupa items por linha (Y aproximado)
-      const grupos = {};
-      tc.items.forEach(it => {
-        const y = Math.round(it.transform[5]);
-        const x = it.transform[4];
-        if (!grupos[y]) grupos[y] = [];
-        grupos[y].push({ x, str: it.str });
+      // Coleta items com x,y. Y do PDF cresce de baixo pra cima — invertemos.
+      const items = tc.items
+        .map(it => ({ x: it.transform[4], y: -it.transform[5], str: it.str }))
+        .filter(o => o.str && o.str.trim() !== '')
+        .sort((a, b) => (a.y - b.y) || (a.x - b.x));
+      // Agrupa por Y com tolerância
+      const grupos = [];
+      let atual = null;
+      let baseY = null;
+      items.forEach(it => {
+        if (atual === null || Math.abs(it.y - baseY) > Y_TOL) {
+          atual = { y: it.y, parts: [] };
+          baseY = it.y;
+          grupos.push(atual);
+        }
+        atual.parts.push(it);
       });
-      const ys = Object.keys(grupos).map(n => parseInt(n, 10)).sort((a, b) => b - a);
-      ys.forEach(y => {
-        const arr = grupos[y].sort((a, b) => a.x - b.x);
+      grupos.forEach(g => {
+        const arr = g.parts.slice().sort((a, b) => a.x - b.x);
         const linha = arr.map(o => o.str).join(' ').replace(/\s+/g, ' ').trim();
         if (linha) linhas.push(linha);
       });
@@ -1861,35 +1870,62 @@
       }
     }
     if (!dataEmissao) {
-      // Fallback: primeira data encontrada
       for (const l of linhas) {
         const m = l.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/);
         if (m) { const d = parseDataBR(m[1]); if (d) { dataEmissao = d; break; } }
       }
     }
-    // Identifica linhas de produto: começam com número e contêm padrão " QTD,DDD TAM"
+    // Identifica linhas de produto. Padrão básico (sem TOTAL): cód + descrição + qtd + tamanho + custo.
+    // TOTAL pode estar na mesma linha ou na próxima — torna opcional.
+    // Aceita também separador "-" entre tamanho e tipo na descrição.
     const rows = [];
-    const reLinha = /^\s*(\d{1,4})\s+(.+?)\s+([\d.]+,\d+)\s+(P|M|G|GG|G1|G2|G3)\s+([\d.]+,\d+)\s+([\d.]+,\d+)\s*$/;
-    linhas.forEach(l => {
-      const m = l.match(reLinha);
-      if (!m) return;
-      const codigo = parseInt(m[1], 10);
-      const descCompleta = m[2];
-      // Quantidade: "1,000" no ERP = 1 unidade. Pega a parte inteira.
-      const quantidade = parseInt(m[3].split(',')[0].replace(/\./g, ''), 10);
-      const tamanho = m[4].toUpperCase();
-      const custo = parseFloat(m[5].replace(/\./g, '').replace(',', '.'));
-      const tc = extrairTipoCorDaDescricao(descCompleta);
+    const reLinha = /^\s*(\d{1,4})\s+(.+?)\s+([\d.]+,\d+)\s+(P|M|G|GG|G1|G2|G3)\s+([\d.]+,\d+)(?:\s+([\d.]+,\d+))?\s*$/;
+    // Em alguns PDFs as colunas qtd/tam/custo vêm na linha de baixo. Tenta combinar duas linhas.
+    function tentarMatch(linha) {
+      const m = linha.match(reLinha);
+      if (!m) return null;
+      return {
+        codigo: parseInt(m[1], 10),
+        descCompleta: m[2],
+        quantidadeStr: m[3],
+        tamanho: m[4].toUpperCase(),
+        custoStr: m[5],
+      };
+    }
+    function processar(parsed) {
+      const quantidade = parseInt(parsed.quantidadeStr.split(',')[0].replace(/\./g, ''), 10);
+      const custo = parseFloat(parsed.custoStr.replace(/\./g, '').replace(',', '.'));
+      const tc = extrairTipoCorDaDescricao(parsed.descCompleta);
       rows.push({
-        codigo,
-        tamanho,
+        codigo: parsed.codigo,
+        tamanho: parsed.tamanho,
         quantidade,
         tipo: tc.tipo,
         cor: tc.cor,
-        descricao: tc.descricao || descCompleta,
+        descricao: tc.descricao || parsed.descCompleta,
         preco: Number.isFinite(custo) ? custo : 0,
       });
-    });
+    }
+    let i = 0;
+    while (i < linhas.length) {
+      const l = linhas[i];
+      let parsed = tentarMatch(l);
+      if (parsed) {
+        processar(parsed);
+        i++;
+        continue;
+      }
+      // Tenta combinar com a próxima linha (caso colunas estejam fragmentadas)
+      if (i + 1 < linhas.length) {
+        parsed = tentarMatch(l + ' ' + linhas[i + 1]);
+        if (parsed) {
+          processar(parsed);
+          i += 2;
+          continue;
+        }
+      }
+      i++;
+    }
     return { rows, dataEmissao };
   }
 
@@ -2077,13 +2113,28 @@
   }
 
   const SEED_CONTAGEM_INICIAL = 300;
+  const SEED_MOTIVO = 'Contagem inicial automática (' + SEED_CONTAGEM_INICIAL + ' un./SKU)';
+  let _seedRunning = false;
+
   async function ensureCatalogoSeed() {
-    if (produtos.length > 0) return;
-    if (!isAdmin()) return;
+    if (!isAdmin() || _seedRunning) return;
+    _seedRunning = true;
     try {
-      const lista = gerarProdutos();
-      await api('POST', '/api/seed-produtos', { produtos: lista });
-      // Contagem inicial: SEED_CONTAGEM_INICIAL unidades em cada (codigo, tamanho)
+      // 1. Cadastra produtos se faltarem
+      if (produtos.length === 0) {
+        const lista = gerarProdutos();
+        try {
+          await api('POST', '/api/seed-produtos', { produtos: lista });
+        } catch (err) {
+          if (err.status !== 409) throw err;
+        }
+      }
+      // 2. Cria contagem inicial se nenhum SKU tem ajuste E nada de movimento foi registrado.
+      //    Idempotente: detecta seed prévio pelo motivo, ou pela presença de qualquer ajuste/movimento.
+      const jaSemeado = ajustes.some(a => a.motivo === SEED_MOTIVO || (a.motivo || '').startsWith('Contagem inicial'));
+      const temMovimento = entradas.length > 0 || saidas.length > 0;
+      if (jaSemeado || temMovimento) return;
+      const lista = produtos.length > 0 ? produtos : gerarProdutos();
       const hoje = new Date().toISOString().slice(0, 10);
       const rows = [];
       lista.forEach(p => {
@@ -2099,17 +2150,21 @@
           });
         });
       });
-      if (rows.length > 0) {
-        await api('POST', '/api/integracao/importar', {
-          rows,
-          dataContagem: hoje,
-          dataEmissao: hoje,
-          motivo: 'Contagem inicial automática (' + SEED_CONTAGEM_INICIAL + ' un./SKU)',
-          dryRun: false,
-        });
+      if (rows.length === 0) return;
+      const r = await api('POST', '/api/integracao/importar', {
+        rows,
+        dataContagem: hoje,
+        dataEmissao: hoje,
+        motivo: SEED_MOTIVO,
+        dryRun: false,
+      });
+      if (r && r.ajustesCriados) {
+        toast('Contagem inicial criada: ' + r.ajustesCriados + ' SKUs com ' + SEED_CONTAGEM_INICIAL + ' un. cada.');
       }
     } catch (err) {
-      if (err.status !== 409) console.error('seed:', err);
+      console.error('seed:', err);
+    } finally {
+      _seedRunning = false;
     }
   }
 
