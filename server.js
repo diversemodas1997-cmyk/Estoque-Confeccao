@@ -30,6 +30,9 @@ const DEFAULT_STATE = {
   atualizado_em: null,
 };
 
+const CONTAGEM_INICIAL_PADRAO = 300;
+const CONTAGEM_INICIAL_MOTIVO_PREFIX = 'Contagem inicial';
+
 const DESTINOS_VALIDOS = new Set(['cliente', 'cancelamento', 'devolucao', 'defeitos']);
 const TAMANHOS_ORDEM = ['P', 'M', 'G', 'GG', 'G1', 'G2', 'G3'];
 const TAMANHOS_VALIDOS = new Set(TAMANHOS_ORDEM);
@@ -77,12 +80,38 @@ function loadState() {
     });
     if (migradosVazio > 0) console.log('[state] preencheu tamanhos em', migradosVazio, 'produto(s) vazio(s)');
     if (reordenados > 0) console.log('[state] reordenou tamanhos em', reordenados, 'produto(s)');
+    const ajustes = Array.isArray(data.ajustes) ? data.ajustes : [];
+    // Migração: produtos auto-cadastrados (via import) sem contagem inicial recebem 300 un. por tamanho
+    const ajustesIndex = new Set();
+    ajustes.forEach(a => ajustesIndex.add(a.codigo + '|' + a.tamanho));
+    let contagensCriadas = 0;
+    const hojeIso = new Date().toISOString().slice(0, 10);
+    produtos.forEach(p => {
+      if (!p.autoCadastro) return;
+      (p.tamanhos || []).forEach(t => {
+        if (ajustesIndex.has(p.codigo + '|' + t)) return;
+        ajustes.push({
+          id: uid(),
+          codigo: p.codigo,
+          tamanho: t,
+          data: hojeIso,
+          qtdContada: CONTAGEM_INICIAL_PADRAO,
+          qtdAnterior: 0,
+          diferenca: CONTAGEM_INICIAL_PADRAO,
+          motivo: CONTAGEM_INICIAL_MOTIVO_PREFIX + ' (auto-cadastro)',
+          origem: 'auto-fix-migration',
+        });
+        ajustesIndex.add(p.codigo + '|' + t);
+        contagensCriadas++;
+      });
+    });
+    if (contagensCriadas > 0) console.log('[state] criou', contagensCriadas, 'contagem(ns) inicial(is) em produtos auto-cadastrados');
     return {
       versao: data.versao || 3,
       produtos,
       entradas: Array.isArray(data.entradas) ? data.entradas : [],
       saidas: Array.isArray(data.saidas) ? data.saidas : [],
-      ajustes: Array.isArray(data.ajustes) ? data.ajustes : [],
+      ajustes,
       config: Object.assign({ estoqueMin: 5, estoqueMax: 100 }, data.config || {}),
       users: Array.isArray(data.users) && data.users.length ? data.users : DEFAULT_USERS.slice(),
       atualizado_em: data.atualizado_em || null,
@@ -574,6 +603,30 @@ app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res)
     }
   });
 
+  // Para cada produto recém-criado, gera 300 unidades de contagem inicial em cada tamanho.
+  // Isso garante que SKUs auto-cadastrados começam com a mesma baseline do seed.
+  const ajustesContagemInicial = [];
+  if (acao === 'saidas' || acao === 'contagem') {
+    novosProdutos.forEach(p => {
+      (p.tamanhos || []).forEach(t => {
+        ajustesContagemInicial.push({
+          id: uid(),
+          codigo: p.codigo,
+          tamanho: t,
+          data: dataContagem,
+          qtdContada: CONTAGEM_INICIAL_PADRAO,
+          qtdAnterior: 0,
+          diferenca: CONTAGEM_INICIAL_PADRAO,
+          motivo: CONTAGEM_INICIAL_MOTIVO_PREFIX + ' (auto-cadastro)',
+          origem: 'erp-import',
+        });
+      });
+    });
+  }
+  if (ajustesContagemInicial.length > 0) {
+    result.contagensIniciais = ajustesContagemInicial.length;
+  }
+
   if (!dryRun) {
     if (novosProdutos.length > 0) {
       state.produtos.push(...novosProdutos);
@@ -586,9 +639,12 @@ app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res)
       for (const t of set) if (!p.tamanhos.includes(t)) p.tamanhos.push(t);
       p.tamanhos = ordenarTamanhos(p.tamanhos);
     }
+    // Adiciona as contagens iniciais ANTES das saídas, pra que o cálculo de estoque
+    // por SKU já tenha a baseline quando as saídas forem aplicadas.
+    if (ajustesContagemInicial.length > 0) state.ajustes.push(...ajustesContagemInicial);
     if (novasSaidas.length > 0) state.saidas.push(...novasSaidas);
     if (novosAjustes.length > 0) state.ajustes.push(...novosAjustes);
-    if (novosProdutos.length > 0 || novasSaidas.length > 0 || novosAjustes.length > 0 || tamanhosPendentes.size > 0) {
+    if (novosProdutos.length > 0 || novasSaidas.length > 0 || novosAjustes.length > 0 || ajustesContagemInicial.length > 0 || tamanhosPendentes.size > 0) {
       await persist();
       broadcast();
     }
