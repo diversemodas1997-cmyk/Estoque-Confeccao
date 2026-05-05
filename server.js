@@ -421,17 +421,19 @@ app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res)
   const b = req.body || {};
   const rows = Array.isArray(b.rows) ? b.rows : null;
   const dryRun = !!b.dryRun;
+  const acao = asStr(b.acao) === 'contagem' ? 'contagem' : 'saidas';
   const dataContagem = asStr(b.dataContagem);
   const dataEmissao = asStr(b.dataEmissao);
-  const motivoBase = asStr(b.motivo) || ('Contagem ERP ' + (dataContagem || ''));
+  const motivoBase = asStr(b.motivo) || (acao === 'contagem' ? 'Contagem ERP ' + (dataContagem || '') : 'Saídas ERP ' + (dataContagem || ''));
   if (!rows) return res.status(400).json({ error: 'Lista de linhas ausente.' });
   if (rows.length === 0) return res.status(400).json({ error: 'Nenhuma linha para importar.' });
   if (rows.length > 5000) return res.status(400).json({ error: 'Limite de 5000 linhas por importação.' });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dataContagem)) {
-    return res.status(400).json({ error: 'Data da contagem inválida (use YYYY-MM-DD).' });
+    return res.status(400).json({ error: 'Data inválida (use YYYY-MM-DD).' });
   }
 
   const result = {
+    saidasCriadas: 0,
     ajustesCriados: 0,
     produtosCriados: 0,
     tamanhosAdicionados: 0,
@@ -439,6 +441,7 @@ app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res)
     semDiferenca: 0,
     problemas: [],
   };
+  const novasSaidas = [];
   const novosAjustes = [];
   const novosProdutos = [];
   const tamanhosPendentes = new Map();
@@ -500,26 +503,41 @@ app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res)
     if (!produto) { result.invalidas++; return; }
     adicionarTamanhoSeNecessario(produto, tamanho);
 
-    const eExistente = state.produtos.includes(produto);
-    const qtdAnterior = eExistente ? calcEstoqueSku(codigo, tamanho) : 0;
-    const diferenca = quantidade - qtdAnterior;
-    if (diferenca === 0) {
-      result.semDiferenca++;
-      return;
+    if (acao === 'saidas') {
+      if (quantidade === 0) { result.semDiferenca++; return; }
+      novasSaidas.push({
+        id: uid(),
+        codigo,
+        tamanho,
+        data: dataContagem,
+        quantidade,
+        valor: 0,
+        destino: 'cliente',
+        origem: 'erp-import',
+        dataEmissao: dataEmissao || null,
+        motivo: motivoBase,
+      });
+      result.saidasCriadas++;
+    } else {
+      // acao === 'contagem': cria ajuste com qtdContada = quantidade
+      const eExistente = state.produtos.includes(produto);
+      const qtdAnterior = eExistente ? calcEstoqueSku(codigo, tamanho) : 0;
+      const diferenca = quantidade - qtdAnterior;
+      if (diferenca === 0) { result.semDiferenca++; return; }
+      novosAjustes.push({
+        id: uid(),
+        codigo,
+        tamanho,
+        data: dataContagem,
+        qtdContada: quantidade,
+        qtdAnterior,
+        diferenca,
+        motivo: motivoBase,
+        origem: 'erp-import',
+        dataEmissao: dataEmissao || null,
+      });
+      result.ajustesCriados++;
     }
-    novosAjustes.push({
-      id: uid(),
-      codigo,
-      tamanho,
-      data: dataContagem,
-      qtdContada: quantidade,
-      qtdAnterior,
-      diferenca,
-      motivo: motivoBase,
-      origem: 'erp-import',
-      dataEmissao: dataEmissao || null,
-    });
-    result.ajustesCriados++;
   });
 
   if (!dryRun) {
@@ -533,10 +551,9 @@ app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res)
       if (!Array.isArray(p.tamanhos)) p.tamanhos = [];
       for (const t of set) if (!p.tamanhos.includes(t)) p.tamanhos.push(t);
     }
-    if (novosAjustes.length > 0) {
-      state.ajustes.push(...novosAjustes);
-    }
-    if (novosProdutos.length > 0 || novosAjustes.length > 0 || tamanhosPendentes.size > 0) {
+    if (novasSaidas.length > 0) state.saidas.push(...novasSaidas);
+    if (novosAjustes.length > 0) state.ajustes.push(...novosAjustes);
+    if (novosProdutos.length > 0 || novasSaidas.length > 0 || novosAjustes.length > 0 || tamanhosPendentes.size > 0) {
       await persist();
       broadcast();
     }

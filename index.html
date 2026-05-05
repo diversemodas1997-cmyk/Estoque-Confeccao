@@ -847,8 +847,8 @@
   <section id="view-integracoes" class="app-section">
     <h2 class="section-title">Integrações</h2>
     <div class="card">
-      <h2>Importar contagem do ERP</h2>
-      <p class="helper">Selecione o relatório do ERP (PDF, CSV ou Excel). O sistema lê <strong>código do produto</strong>, <strong>variação (tamanho)</strong> e <strong>quantidade contada</strong>, criando um ajuste de inventário por linha. Produtos não cadastrados são criados automaticamente seguindo o código do ERP. Importações são cumulativas.</p>
+      <h2>Importar saídas do ERP</h2>
+      <p class="helper">Selecione o relatório de vendas do ERP (PDF, CSV ou Excel). O sistema lê <strong>código do produto</strong>, <strong>variação (tamanho)</strong> e <strong>quantidade vendida</strong>, criando uma saída (com valor R$ 0,00) por linha. A <strong>contagem</strong> (snapshot do estoque físico) é separada — vem do seed inicial e dos ajustes manuais, e não é alterada pela importação. Produtos não cadastrados são criados automaticamente seguindo o código do ERP. Importações são cumulativas.</p>
       <div class="form-grid-cad-2" style="align-items: end;">
         <div>
           <label style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; margin-bottom:4px;">Arquivo (.pdf, .csv, .xlsx, .xls)</label>
@@ -877,11 +877,11 @@
     </div>
 
     <div class="card" style="margin-top: 18px;">
-      <h2>Histórico de contagens importadas</h2>
-      <p class="helper">Últimas 100 contagens registradas via importação do ERP.</p>
+      <h2>Histórico de saídas via ERP</h2>
+      <p class="helper">Últimas 100 saídas registradas via importação do relatório do ERP. Valor = R$ 0,00 (CMV calculado pelo programa via FIFO).</p>
       <div class="table-wrap" style="max-height: 420px;">
         <table id="tbl-erp-contagens">
-          <thead><tr><th>Data</th><th>Cód.</th><th>Item</th><th>Tam.</th><th class="num">Anterior</th><th class="num">Contado</th><th class="num">Diferença</th></tr></thead>
+          <thead><tr><th>Data</th><th>Cód.</th><th>Item</th><th>Tam.</th><th class="num">Qtd</th><th class="num">Valor</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -2035,9 +2035,10 @@
     const dataContagem = document.getElementById('import-data-contagem').value;
     return {
       rows: importRows,
+      acao: 'saidas',
       dataContagem,
       dataEmissao: importDataEmissao || null,
-      motivo: 'Contagem ERP ' + (dataContagem || ''),
+      motivo: 'Saídas ERP ' + (dataContagem || ''),
       dryRun,
     };
   }
@@ -2045,17 +2046,17 @@
   document.getElementById('btn-import-preview').addEventListener('click', async () => {
     if (!isAdmin()) { toast('Acesso restrito.', 'error'); return; }
     if (importRows.length === 0) { toast('Selecione um arquivo primeiro.', 'error'); return; }
-    if (!document.getElementById('import-data-contagem').value) { toast('Informe a data da contagem.', 'error'); return; }
+    if (!document.getElementById('import-data-contagem').value) { toast('Informe a data.', 'error'); return; }
     try {
       const r = await api('POST', '/api/integracao/importar', montarPayloadImport(true));
       const div = document.getElementById('import-preview');
       let html = '<div class="info-box" style="background: var(--bg-soft); flex-direction: column; align-items: stretch;">';
       html += '<div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom: 8px;">';
-      html += '<span>📦 Ajustes a criar: <strong>' + r.ajustesCriados + '</strong></span>';
-      html += '<span>🆕 Produtos a auto-cadastrar: <strong>' + r.produtosCriados + '</strong></span>';
-      html += '<span>➕ Tamanhos a adicionar: <strong>' + r.tamanhosAdicionados + '</strong></span>';
-      html += '<span>= Sem diferença: <strong>' + r.semDiferenca + '</strong></span>';
-      html += '<span>⚠️ Inválidas: <strong>' + r.invalidas + '</strong></span>';
+      html += '<span>📤 Saídas a criar: <strong>' + (r.saidasCriadas || 0) + '</strong></span>';
+      html += '<span>🆕 Produtos a auto-cadastrar: <strong>' + (r.produtosCriados || 0) + '</strong></span>';
+      html += '<span>➕ Tamanhos a adicionar: <strong>' + (r.tamanhosAdicionados || 0) + '</strong></span>';
+      html += '<span>= Quantidade zero: <strong>' + (r.semDiferenca || 0) + '</strong></span>';
+      html += '<span>⚠️ Inválidas: <strong>' + (r.invalidas || 0) + '</strong></span>';
       html += '</div>';
       if (r.problemas && r.problemas.length > 0) {
         html += '<details style="margin-top:8px;"><summary>Ver ' + r.problemas.length + ' problemas detectados</summary>';
@@ -2067,10 +2068,10 @@
         html += '</div></details>';
       }
       html += '</div>';
-      if (r.ajustesCriados > 0 || r.produtosCriados > 0) {
+      if ((r.saidasCriadas || 0) > 0 || (r.produtosCriados || 0) > 0) {
         html += '<button type="button" id="btn-import-confirmar" class="primary" style="margin-top: 12px;">Confirmar importação</button>';
       } else {
-        html += '<p class="helper" style="margin-top: 12px;">Nada a importar (todos os SKUs já estão com a quantidade contada).</p>';
+        html += '<p class="helper" style="margin-top: 12px;">Nada a importar.</p>';
       }
       div.innerHTML = html;
       div.style.display = 'block';
@@ -2083,7 +2084,7 @@
     try {
       const r = await api('POST', '/api/integracao/importar', montarPayloadImport(false));
       const partes = [];
-      if (r.ajustesCriados) partes.push(r.ajustesCriados + ' contagem(ns)');
+      if (r.saidasCriadas) partes.push(r.saidasCriadas + ' saída(s)');
       if (r.produtosCriados) partes.push(r.produtosCriados + ' produto(s) novo(s)');
       if (r.tamanhosAdicionados) partes.push(r.tamanhosAdicionados + ' tamanho(s)');
       toast('Importado: ' + (partes.join(', ') || 'nada'));
@@ -2096,19 +2097,19 @@
   }
 
   function renderErpContagens() {
+    // Função renomeada conceitualmente: agora mostra saídas via ERP.
     const tb = document.querySelector('#tbl-erp-contagens tbody');
     if (!tb) return;
-    const erpAjustes = ajustes.filter(a => a.origem === 'erp-import')
+    const erpSaidas = saidas.filter(s => s.origem === 'erp-import')
       .sort((a, b) => (b.data || '').localeCompare(a.data || '') || b.id.localeCompare(a.id))
       .slice(0, 100);
-    if (erpAjustes.length === 0) {
-      tb.innerHTML = '<tr><td colspan="7" class="empty">Nenhuma contagem importada via ERP ainda.</td></tr>';
+    if (erpSaidas.length === 0) {
+      tb.innerHTML = '<tr><td colspan="6" class="empty">Nenhuma saída importada via ERP ainda.</td></tr>';
       return;
     }
-    tb.innerHTML = erpAjustes.map(a => {
-      const p = produtos.find(p => p.codigo === a.codigo);
-      const cls = a.diferenca > 0 ? 'pill-pos' : (a.diferenca < 0 ? 'pill-neg' : 'pill-zero');
-      return '<tr><td>' + fmtData(a.data) + '</td><td class="code">' + fmtSkuCodigo(a.codigo, a.tamanho) + '</td><td>' + escHtml(p ? p.item : '—') + '</td><td>' + escHtml(a.tamanho || '—') + '</td><td class="num">' + fmtNum(a.qtdAnterior) + '</td><td class="num">' + fmtNum(a.qtdContada) + '</td><td class="num"><span class="pill ' + cls + '">' + fmtSign(a.diferenca) + '</span></td></tr>';
+    tb.innerHTML = erpSaidas.map(s => {
+      const p = produtos.find(p => p.codigo === s.codigo);
+      return '<tr><td>' + fmtData(s.data) + '</td><td class="code">' + fmtSkuCodigo(s.codigo, s.tamanho) + '</td><td>' + escHtml(p ? p.item : '—') + '</td><td>' + escHtml(s.tamanho || '—') + '</td><td class="num">' + fmtNum(s.quantidade) + '</td><td class="num">' + fmtBRL(s.valor) + '</td></tr>';
     }).join('');
   }
 
@@ -2153,6 +2154,7 @@
       if (rows.length === 0) return;
       const r = await api('POST', '/api/integracao/importar', {
         rows,
+        acao: 'contagem',
         dataContagem: hoje,
         dataEmissao: hoje,
         motivo: SEED_MOTIVO,
