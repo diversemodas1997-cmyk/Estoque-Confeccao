@@ -474,8 +474,16 @@ function persist() {
 
 async function writeBackup(json) {
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const dailyFile = path.join(BACKUP_DIR, 'backup_estoque_' + today + '.json');
+    // Timestamp completo (YYYY-MM-DDTHH-mm-ss-mmm) garante 1 arquivo por modificação,
+    // sem sobrescrever durante o dia. Cobre o pedido de "backup automático sempre que
+    // houver modificação" — toda chamada de persist() gera backup.
+    const ts = new Date().toISOString().replace(/:/g, '-').replace(/\./g, '-').slice(0, 23);
+    const file = path.join(BACKUP_DIR, 'backup_estoque_' + ts + '.json');
+    await fsp.writeFile(file, json, 'utf8');
+    // Também mantém o arquivo "diário" (sobrescreve no mesmo dia) — usado pelo botão
+    // 'Restaurar backup' como referência mais recente do dia.
+    const today = ts.slice(0, 10);
+    const dailyFile = path.join(BACKUP_DIR, 'latest_' + today + '.json');
     await fsp.writeFile(dailyFile, json, 'utf8');
     await rotateBackups();
   } catch (err) {
@@ -484,13 +492,16 @@ async function writeBackup(json) {
 }
 
 async function rotateBackups() {
-  const KEEP = 30;
-  const files = (await fsp.readdir(BACKUP_DIR))
-    .filter(f => f.startsWith('backup_estoque_') && f.endsWith('.json'))
-    .sort();
-  if (files.length <= KEEP) return;
-  const remove = files.slice(0, files.length - KEEP);
-  for (const f of remove) {
+  // Mantém os 100 backups timestamped mais recentes + os 30 'latest' diários mais recentes.
+  // Cobre histórico recente de modificações sem estourar disco.
+  const all = await fsp.readdir(BACKUP_DIR);
+  const timestamped = all.filter(f => /^backup_estoque_\d{4}-\d{2}-\d{2}T/.test(f) && f.endsWith('.json')).sort();
+  const dailies = all.filter(f => /^latest_\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort();
+  const KEEP_TS = 100;
+  const KEEP_DAILY = 30;
+  const removerTs = timestamped.length > KEEP_TS ? timestamped.slice(0, timestamped.length - KEEP_TS) : [];
+  const removerDaily = dailies.length > KEEP_DAILY ? dailies.slice(0, dailies.length - KEEP_DAILY) : [];
+  for (const f of [...removerTs, ...removerDaily]) {
     try { await fsp.unlink(path.join(BACKUP_DIR, f)); } catch (_) {}
   }
 }
