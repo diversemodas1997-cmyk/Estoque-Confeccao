@@ -194,8 +194,12 @@ function loadState() {
 
     // Migração: dedup produtos com mesmo `item` (mesmo tipo+cor após canonicalização).
     // Mantém o canônico (preferindo codigo ERP). Migra entradas/saídas/ajustes pra ele.
+    // IMPORTANTE: ajustes precisa ser declarado AQUI (antes do dedup), porque o dedup
+    // remapeia codigos em entradas/saidas/ajustes. Antes estava após o dedup, causando
+    // ReferenceError por TDZ → catch retornava DEFAULT_STATE, ZERANDO toda a base.
     const entradas = Array.isArray(data.entradas) ? data.entradas : [];
     const saidas = Array.isArray(data.saidas) ? data.saidas : [];
+    const ajustes = Array.isArray(data.ajustes) ? data.ajustes : [];
     const grupos = new Map();
     produtos.forEach(p => {
       const key = String(p.item || '');
@@ -243,7 +247,6 @@ function loadState() {
     if (duplicatasRemovidas > 0) console.log('[state] dedup:', duplicatasRemovidas, 'produto(s) duplicado(s) removido(s),', refsRemapeadas, 'referência(s) remapeada(s)');
 
     let dirty = migradosVazio > 0 || reordenados > 0 || itensCorrigidos > 0 || legadosLimpos > 0 || tiposCanonicalizados > 0 || duplicatasRemovidas > 0;
-    const ajustes = Array.isArray(data.ajustes) ? data.ajustes : [];
     // Migração: para QUALQUER (codigo, tamanho) sem ajuste registrado, cria 300 un. de
     // contagem inicial. Cobre tanto produtos auto-cadastrados quanto produtos manuais
     // ou seed que ficaram sem ajuste por algum motivo (seed parcial, deploy migrado, etc.).
@@ -282,8 +285,8 @@ function loadState() {
     return {
       versao: data.versao || 3,
       produtos,
-      entradas: Array.isArray(data.entradas) ? data.entradas : [],
-      saidas: Array.isArray(data.saidas) ? data.saidas : [],
+      entradas,
+      saidas,
       ajustes,
       config: Object.assign({ estoqueMin: 5, estoqueMax: 100 }, data.config || {}),
       users,
@@ -291,8 +294,30 @@ function loadState() {
       _dirty: dirty,
     };
   } catch (err) {
-    console.error('[state] erro ao ler estoque.json, usando default:', err.message);
-    return JSON.parse(JSON.stringify(DEFAULT_STATE));
+    console.error('[state] ERRO durante carregamento/migração:', err.message, err.stack);
+    // Tenta recuperar pelo menos os dados brutos do arquivo, sem aplicar migrações.
+    // Antes esse catch retornava DEFAULT_STATE, ZERANDO toda a base — péssimo se o erro
+    // estiver na migração (não nos dados em si).
+    try {
+      const raw = fs.readFileSync(STATE_FILE, 'utf8');
+      const data = JSON.parse(raw);
+      console.error('[state] FALLBACK: retornando dados brutos sem migração aplicada');
+      const usersFallback = loadUsers();
+      ensureDefaultUsers(usersFallback);
+      return {
+        versao: data.versao || 3,
+        produtos: Array.isArray(data.produtos) ? data.produtos : [],
+        entradas: Array.isArray(data.entradas) ? data.entradas : [],
+        saidas: Array.isArray(data.saidas) ? data.saidas : [],
+        ajustes: Array.isArray(data.ajustes) ? data.ajustes : [],
+        config: Object.assign({ estoqueMin: 5, estoqueMax: 100 }, data.config || {}),
+        users: usersFallback,
+        atualizado_em: data.atualizado_em || null,
+      };
+    } catch (err2) {
+      console.error('[state] fallback tambem falhou, usando DEFAULT_STATE:', err2.message);
+      return JSON.parse(JSON.stringify(DEFAULT_STATE));
+    }
   }
 }
 
