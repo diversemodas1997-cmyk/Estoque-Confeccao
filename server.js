@@ -1192,6 +1192,21 @@ app.post('/api/admin/zerar-contagem-auto', authMiddleware, adminOnly, async (req
   }, responseExtras));
 });
 
+// Zera o estoque completo: apaga TODAS as entradas, saídas e ajustes (manual e auto).
+// Após esta operação, o estoque de todo SKU = 0. Os produtos cadastrados são preservados.
+app.post('/api/admin/zerar-estoque', authMiddleware, adminOnly, async (req, res) => {
+  const totEnt = state.entradas.length;
+  const totSai = state.saidas.length;
+  const totAj = state.ajustes.length;
+  state.entradas = [];
+  state.saidas = [];
+  state.ajustes = [];
+  state.seedContagemInicialFeito = true;
+  await persist();
+  broadcast();
+  res.json({ ok: true, entradasRemovidas: totEnt, saidasRemovidas: totSai, ajustesRemovidos: totAj });
+});
+
 // Diagnóstico: mostra contadores e categorias do estado pra ajudar debug
 app.get('/api/admin/diagnostico', authMiddleware, adminOnly, (req, res) => {
   const isAuto = (a) => (a.motivo || '').startsWith(CONTAGEM_INICIAL_MOTIVO_PREFIX) || a.origem === 'auto-fix-migration' || a.origem === 'erp-import';

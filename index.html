@@ -638,9 +638,6 @@
       <button data-nav="config" data-admin-only>Configurações</button>
     </nav>
     <div class="actions-top">
-      <button id="btn-export-csv">Exportar CSV ↓</button>
-      <button id="btn-backup" data-admin-only>Backup completo</button>
-      <button id="btn-restore" data-admin-only>Restaurar backup</button>
       <input type="file" id="file-restore" accept=".json" style="display:none;">
       <span class="user-info">
         <span id="sync-indicator" class="sync sync-offline" title="Status de sincronização">
@@ -649,7 +646,6 @@
         </span>
         <span id="login-username"></span>
         <span id="login-badge" class="user-badge"></span>
-        <button id="btn-trocar-senha" class="ghost" style="font-size: 12px; padding: 4px 10px;">Trocar senha</button>
         <button id="btn-logout" class="ghost" style="font-size: 12px; padding: 4px 10px;">Sair</button>
       </span>
     </div>
@@ -666,12 +662,7 @@
     </div>
 
     <div class="card">
-      <h2>
-        Estoque atual
-        <div class="footer-actions">
-          <button id="btn-export-csv-2" class="ghost">Exportar CSV ↓</button>
-        </div>
-      </h2>
+      <h2>Estoque atual</h2>
       <div class="filters-row">
         <input type="search" id="f-search" placeholder="🔍  Buscar por código ou nome do item...">
         <select id="f-status">
@@ -890,7 +881,12 @@
 
   <section id="view-usuarios" class="app-section">
     <h2 class="section-title">Usuários</h2>
-    <div class="card">
+    <div class="card" style="max-width: 520px;">
+      <h2>Minha conta</h2>
+      <p class="helper">Trocar a senha do usuário logado.</p>
+      <button type="button" id="btn-trocar-senha" class="ghost">Trocar minha senha</button>
+    </div>
+    <div class="card" style="margin-top: 18px;" data-admin-only>
       <h2>Cadastrar novo usuário</h2>
       <p class="helper">Crie contas para a equipe. Administradores podem editar tudo; usuários comuns só registram movimentações.</p>
       <form id="form-usuario">
@@ -942,33 +938,20 @@
       </form>
     </div>
 
-    <div class="card" data-admin-only style="max-width: 720px; margin-top: 18px;">
-      <h2>Operações administrativas (modo manual)</h2>
-      <p class="helper">Ações destrutivas que limpam dados em lote. Use ao iniciar uma contagem manual do zero. <strong>Não desfaz</strong>.</p>
-
-      <div style="display: flex; flex-direction: column; gap: 12px;">
-        <div style="padding: 10px; border: 1px solid var(--accent, #3b82f6); border-radius: var(--radius); background: rgba(59,130,246,0.05);">
-          <div style="font-weight: 600; margin-bottom: 4px;">🧹 Limpar movimentações (modo manual completo)</div>
-          <p class="helper" style="margin: 4px 0 8px 0;">Apaga <strong>todas as entradas, todas as saídas (incluindo do ERP) e ajustes automáticos</strong> do sistema. Preserva apenas os ajustes manuais (contagens inseridas pelo usuário) e recalcula suas diferenças. Após esta operação, o estoque de cada SKU iguala a última contagem manual.</p>
-          <button type="button" id="btn-admin-limpar-movimentacoes" class="primary">Limpar tudo, manter contagem manual</button>
-        </div>
-
-        <div style="padding: 10px; border: 1px solid var(--border); border-radius: var(--radius);">
-          <div style="font-weight: 600; margin-bottom: 4px;">Zerar saídas vindas do ERP</div>
-          <p class="helper" style="margin: 4px 0 8px 0;">Apaga apenas as saídas com origem = importação de relatório. Saídas registradas manualmente via formulário ficam intactas.</p>
-          <button type="button" id="btn-admin-zerar-saidas-erp" class="ghost">Zerar saídas do ERP</button>
-        </div>
-
-        <div style="padding: 10px; border: 1px solid var(--border); border-radius: var(--radius);">
-          <div style="font-weight: 600; margin-bottom: 4px;">Zerar contagem automática (preservar manuais de um tipo)</div>
-          <p class="helper" style="margin: 4px 0 8px 0;">Apaga as contagens iniciais automáticas (300 un./SKU) e quaisquer ajustes vindos da importação. Para o tipo informado, ajustes manuais são preservados e suas diferenças são recalculadas para refletir o novo baseline. Para os demais, todos os ajustes são apagados.</p>
-          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <input type="text" id="admin-tipo-preservar" placeholder="Tipo com manuais (ex: CM.LISA)" style="flex: 1; min-width: 200px;" value="CM.LISA">
-            <button type="button" id="btn-admin-zerar-contagem-auto" class="ghost">Zerar contagem auto</button>
-          </div>
-        </div>
+    <div class="card" style="max-width: 520px; margin-top: 18px;">
+      <h2>Backup e exportação</h2>
+      <p class="helper">Exporte os dados do sistema ou crie um arquivo de backup completo.</p>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" id="btn-export-csv" class="ghost">Exportar CSV ↓</button>
+        <button type="button" id="btn-backup" class="ghost" data-admin-only>Backup completo</button>
+        <button type="button" id="btn-restore" class="ghost" data-admin-only>Restaurar backup</button>
       </div>
+    </div>
 
+    <div class="card" data-admin-only style="max-width: 520px; margin-top: 18px;">
+      <h2>Zerar estoque</h2>
+      <p class="helper">Apaga <strong>todas as entradas, saídas e ajustes</strong> do sistema. Os produtos cadastrados permanecem. Após esta operação, o estoque de todos os SKUs será 0. Use ao iniciar uma contagem manual do zero. <strong>Não pode ser desfeito.</strong></p>
+      <button type="button" id="btn-admin-zerar-estoque" class="primary">Zerar estoque</button>
       <div id="admin-resultado" style="margin-top: 12px;"></div>
     </div>
   </section>
@@ -2535,53 +2518,21 @@
     }
   });
 
-  // Operações administrativas (modo manual)
-  document.getElementById('btn-admin-limpar-movimentacoes').addEventListener('click', async () => {
+  // Operação administrativa: zerar estoque
+  document.getElementById('btn-admin-zerar-estoque').addEventListener('click', async () => {
     if (!isAdmin()) { toast('Apenas administradores.', 'error'); return; }
-    if (!confirm('LIMPAR TUDO?\n\nIsso apaga:\n• Todas as entradas\n• Todas as saídas (manuais e do ERP)\n• Ajustes automáticos (Contagem inicial...)\n\nPreserva apenas ajustes manuais e recalcula suas diferenças.\n\nESTA AÇÃO NÃO PODE SER DESFEITA. Continuar?')) return;
-    if (!confirm('Tem certeza? Última confirmação.')) return;
+    if (!confirm('ZERAR ESTOQUE?\n\nApaga todas as entradas, saídas e ajustes do sistema. Os produtos cadastrados permanecem.\n\nESTA AÇÃO NÃO PODE SER DESFEITA. Continuar?')) return;
+    if (!confirm('Confirma definitivamente o zeramento do estoque?')) return;
     try {
-      const r = await api('POST', '/api/admin/limpar-movimentacoes');
+      const r = await api('POST', '/api/admin/zerar-estoque');
       const div = document.getElementById('admin-resultado');
       div.innerHTML = '<div class="info-box" style="background:var(--bg-soft); flex-direction:column; align-items:stretch;">'
         + '<span>🗑️ Entradas removidas: <strong>' + r.entradasRemovidas + '</strong></span>'
         + '<span>🗑️ Saídas removidas: <strong>' + r.saidasRemovidas + '</strong></span>'
-        + '<span>🗑️ Ajustes auto removidos: <strong>' + r.ajustesAutoRemovidos + '</strong></span>'
-        + '<span>📌 Ajustes manuais preservados: <strong>' + r.ajustesManuaisPreservados + '</strong> (em ' + r.skusComContagemManual + ' SKU(s))</span>'
-        + '<span>🔄 Diferenças recalculadas: <strong>' + r.ajustesRecalculados + '</strong></span>'
+        + '<span>🗑️ Ajustes removidos: <strong>' + r.ajustesRemovidos + '</strong></span>'
+        + '<span>✅ Estoque agora é zero em todos os SKUs.</span>'
         + '</div>';
-      toast('Sistema resetado. ' + r.ajustesManuaisPreservados + ' ajuste(s) manual(is) preservado(s).');
-    } catch (ex) { toast(ex.message, 'error'); }
-  });
-
-  document.getElementById('btn-admin-zerar-saidas-erp').addEventListener('click', async () => {
-    if (!isAdmin()) { toast('Apenas administradores.', 'error'); return; }
-    if (!confirm('Apagar TODAS as saídas vindas de importação de relatório? (Saídas manuais ficam intactas, esta ação não pode ser desfeita)')) return;
-    try {
-      const r = await api('POST', '/api/admin/zerar-saidas-erp');
-      const div = document.getElementById('admin-resultado');
-      div.innerHTML = '<div class="info-box" style="background:var(--bg-soft);"><span>✅ Removidas: <strong>' + r.removidas + '</strong> saídas do ERP. Preservadas: <strong>' + r.preservadas + '</strong>.</span></div>';
-      toast(r.removidas + ' saída(s) do ERP apagada(s).');
-    } catch (ex) { toast(ex.message, 'error'); }
-  });
-
-  document.getElementById('btn-admin-zerar-contagem-auto').addEventListener('click', async () => {
-    if (!isAdmin()) { toast('Apenas administradores.', 'error'); return; }
-    const tipoPreservar = document.getElementById('admin-tipo-preservar').value.trim().toUpperCase();
-    const msg = tipoPreservar
-      ? 'Zerar TODOS os ajustes automáticos? (Ajustes manuais do tipo "' + tipoPreservar + '" são preservados e diferenças recalculadas. Demais tipos perdem todos os ajustes.) Esta ação não pode ser desfeita.'
-      : 'Zerar TODOS os ajustes (auto e ERP)? Esta ação não pode ser desfeita.';
-    if (!confirm(msg)) return;
-    try {
-      const r = await api('POST', '/api/admin/zerar-contagem-auto', { tipoComManuais: tipoPreservar });
-      const div = document.getElementById('admin-resultado');
-      div.innerHTML = '<div class="info-box" style="background:var(--bg-soft); flex-direction:column; align-items:stretch;">'
-        + '<span>✅ Removidos: <strong>' + r.removidos + '</strong> ajuste(s) auto.</span>'
-        + '<span>📌 Preservados: <strong>' + r.preservados + '</strong> ajuste(s) manual.</span>'
-        + '<span>🔄 Recalculados: <strong>' + (r.ajustesRecalculados || 0) + '</strong> ajuste(s) (em ' + (r.skusRecalculados || 0) + ' SKU(s)).</span>'
-        + '<span style="font-size:11px; color:var(--text-mute); margin-top:4px;">Códigos preservados: ' + (r.codigosPreservados || []).join(', ') + '</span>'
-        + '</div>';
-      toast(r.removidos + ' ajuste(s) auto removidos, ' + (r.ajustesRecalculados || 0) + ' manual(is) recalculado(s).');
+      toast('Estoque zerado.');
     } catch (ex) { toast(ex.message, 'error'); }
   });
 
@@ -2698,7 +2649,6 @@
     toast('CSV exportado.');
   }
   document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
-  document.getElementById('btn-export-csv-2').addEventListener('click', exportCSV);
 
   document.getElementById('btn-backup').addEventListener('click', () => {
     const data = {
