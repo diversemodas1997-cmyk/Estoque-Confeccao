@@ -13,6 +13,7 @@ const STORAGE_DIR = process.env.STORAGE_DIR || ROOT;
 const DATA_DIR = path.join(STORAGE_DIR, 'data');
 const BACKUP_DIR = path.join(STORAGE_DIR, 'backups');
 const STATE_FILE = path.join(DATA_DIR, 'estoque.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 const DEFAULT_USERS = [
   { username: 'admin', password: 'admin', role: 'admin' },
@@ -79,10 +80,54 @@ function ensureDirs() {
   if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
 }
 
+function loadUsers() {
+  // 1) Tenta arquivo isolado de usuários (não é tocado por migrações de produtos/ajustes).
+  if (fs.existsSync(USERS_FILE)) {
+    try {
+      const arr = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+      if (Array.isArray(arr) && arr.length > 0) return arr;
+    } catch (err) {
+      console.error('[users] erro ao ler users.json:', err.message);
+    }
+  }
+  // 2) Tenta extrair de estoque.json (compatibilidade com instalações antigas).
+  if (fs.existsSync(STATE_FILE)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+      if (Array.isArray(data.users) && data.users.length > 0) return data.users;
+    } catch (err) { /* ignora */ }
+  }
+  return DEFAULT_USERS.slice();
+}
+
+function ensureDefaultUsers(users) {
+  // Garante que admin e usuario sempre existem (proteção contra perda total de acesso).
+  let added = 0;
+  DEFAULT_USERS.forEach(d => {
+    if (!users.some(u => u.username.toLowerCase() === d.username.toLowerCase())) {
+      users.push({ ...d });
+      added++;
+    }
+  });
+  return added;
+}
+
+function persistUsers(users) {
+  // Escrita atômica em arquivo isolado.
+  ensureDirs();
+  const json = JSON.stringify(users, null, 2);
+  const tmp = USERS_FILE + '.tmp';
+  fs.writeFileSync(tmp, json, 'utf8');
+  fs.renameSync(tmp, USERS_FILE);
+}
+
 function loadState() {
   ensureDirs();
   if (!fs.existsSync(STATE_FILE)) {
-    return JSON.parse(JSON.stringify(DEFAULT_STATE));
+    const defaultState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+    // Mesmo em primeiro boot, carrega usuários do arquivo isolado se existir
+    defaultState.users = loadUsers();
+    return defaultState;
   }
   try {
     const raw = fs.readFileSync(STATE_FILE, 'utf8');
@@ -227,6 +272,13 @@ function loadState() {
     });
     if (contagensCriadas > 0) console.log('[state] criou', contagensCriadas, 'contagem(ns) inicial(is) em SKUs sem ajuste');
     if (contagensCriadas > 0) dirty = true;
+    // Carrega usuários do arquivo isolado (primário). Garante defaults sempre presentes.
+    const users = loadUsers();
+    const adicionadosDefaults = ensureDefaultUsers(users);
+    if (adicionadosDefaults > 0) {
+      console.log('[users] restaurou', adicionadosDefaults, 'usuário(s) default que estavam ausentes');
+      persistUsers(users);
+    }
     return {
       versao: data.versao || 3,
       produtos,
@@ -234,7 +286,7 @@ function loadState() {
       saidas: Array.isArray(data.saidas) ? data.saidas : [],
       ajustes,
       config: Object.assign({ estoqueMin: 5, estoqueMax: 100 }, data.config || {}),
-      users: Array.isArray(data.users) && data.users.length ? data.users : DEFAULT_USERS.slice(),
+      users,
       atualizado_em: data.atualizado_em || null,
       _dirty: dirty,
     };
@@ -265,6 +317,15 @@ function persist() {
     await fsp.writeFile(tmp, json, 'utf8');
     await fsp.rename(tmp, STATE_FILE);
     await writeBackup(json);
+    // Escreve users.json em separado (isolado de migrações de produtos/ajustes)
+    try {
+      const usersJson = JSON.stringify(state.users || [], null, 2);
+      const tmpU = USERS_FILE + '.tmp';
+      await fsp.writeFile(tmpU, usersJson, 'utf8');
+      await fsp.rename(tmpU, USERS_FILE);
+    } catch (err) {
+      console.error('[persist users] erro:', err.message);
+    }
   }).catch(err => {
     console.error('[persist] erro:', err);
   });
