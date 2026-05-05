@@ -80,7 +80,27 @@ function loadState() {
     });
     if (migradosVazio > 0) console.log('[state] preencheu tamanhos em', migradosVazio, 'produto(s) vazio(s)');
     if (reordenados > 0) console.log('[state] reordenou tamanhos em', reordenados, 'produto(s)');
-    let dirty = migradosVazio > 0 || reordenados > 0;
+    // Migração: remove sufixo de tamanho colado no `item` de produtos legados (pré-refator).
+    // Antes o item incluía o tamanho ('CM.LISA-PRE-G'); no novo modelo, item é a base
+    // ('CM.LISA-PRE') e o tamanho é coluna separada. Sufixos sobrando causam conflito visual.
+    // Cores reais (PRE, BRA, MARINHO, MARROM, MOSTARDA, MAR, MARSALA, MESCLA etc.) não
+    // colidem com o regex porque não terminam em P|M|G|GG|G1|G2|G3.
+    const TAM_SUFFIX_RE = /-(?:P|M|G|GG|G1|G2|G3)$/i;
+    let itensCorrigidos = 0, legadosLimpos = 0;
+    produtos.forEach(p => {
+      if (typeof p.item === 'string' && TAM_SUFFIX_RE.test(p.item)) {
+        p.item = p.item.replace(TAM_SUFFIX_RE, '');
+        itensCorrigidos++;
+      }
+      // Remove campo `tamanho` (singular) legado — substituído por `tamanhos` (array)
+      if ('tamanho' in p) {
+        delete p.tamanho;
+        legadosLimpos++;
+      }
+    });
+    if (itensCorrigidos > 0) console.log('[state] limpou sufixo de tamanho em', itensCorrigidos, 'produto(s) com nome legado');
+    if (legadosLimpos > 0) console.log('[state] removeu campo legado `tamanho` de', legadosLimpos, 'produto(s)');
+    let dirty = migradosVazio > 0 || reordenados > 0 || itensCorrigidos > 0 || legadosLimpos > 0;
     const ajustes = Array.isArray(data.ajustes) ? data.ajustes : [];
     // Migração: para QUALQUER (codigo, tamanho) sem ajuste registrado, cria 300 un. de
     // contagem inicial. Cobre tanto produtos auto-cadastrados quanto produtos manuais
