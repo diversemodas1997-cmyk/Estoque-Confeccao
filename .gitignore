@@ -10,3 +10,6 @@ Thumbs.db
 # Dados locais e backups (recriados em runtime)
 data/
 backups/
+
+# Relatórios do ERP (binários, podem conter dados sensíveis)
+*.pdf
