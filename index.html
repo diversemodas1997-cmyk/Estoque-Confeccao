@@ -1531,9 +1531,26 @@
     }).join('') : '<tr><td colspan="9" class="empty">Nenhum ajuste registrado.</td></tr>';
   }
 
+  function rotuloProduto(p) {
+    // Mostra descrição (mais legível) com codigo e SKU técnico ao final pra desambiguar.
+    // Ex: "CAMISETA BÁSICA PRETO  ·  cód 017  [CM.LISA-PRE]"
+    const desc = (p.descricaoErp || '').trim();
+    const codigo = fmtCodigo(p.codigo);
+    if (desc) {
+      return desc + '  ·  cód ' + codigo + '  [' + (p.item || '') + ']';
+    }
+    return codigo + ' — ' + (p.item || '');
+  }
+
   function popularSelects() {
-    const ordenados = produtos.slice().sort((a,b) => a.codigo - b.codigo);
-    const opts = ordenados.map(p => '<option value="' + p.codigo + '">' + fmtCodigo(p.codigo) + ' — ' + escHtml(p.item) + '</option>').join('');
+    // Ordena por descrição (alfabética) pra facilitar busca por nome do produto
+    const ordenados = produtos.slice().sort((a,b) => {
+      const da = (a.descricaoErp || a.item || '').toUpperCase();
+      const db = (b.descricaoErp || b.item || '').toUpperCase();
+      if (da !== db) return da < db ? -1 : 1;
+      return a.codigo - b.codigo;
+    });
+    const opts = ordenados.map(p => '<option value="' + p.codigo + '">' + escHtml(rotuloProduto(p)) + '</option>').join('');
     const placeholder = '<option value="" disabled selected>Selecione o produto...</option>';
     const placeholderTam = '<option value="" disabled selected>Tam...</option>';
     document.querySelector('#form-entrada select[name=codigo]').innerHTML = placeholder + opts;

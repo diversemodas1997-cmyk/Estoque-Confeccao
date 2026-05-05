@@ -35,59 +35,60 @@ const CONTAGEM_INICIAL_PADRAO = 300;
 const CONTAGEM_INICIAL_MOTIVO_PREFIX = 'Contagem inicial';
 
 // Catálogo canônico ERP — fonte de verdade pra criação de produtos faltantes e dedup.
-// Mantém em sincronia com ERP_CATALOGO no client.
+// Mantém em sincronia com ERP_CATALOGO no client. Descrição é mostrada na UI nos selects
+// de entrada/saída/ajuste pra desambiguar PM.LISA vs CM.LISA etc.
 const ERP_CATALOGO = [
-  { codigo: 12, tipo: 'PM.LISA',     cor: 'PRE'     },
-  { codigo: 13, tipo: 'PM.LISA',     cor: 'BEGE'    },
-  { codigo: 14, tipo: 'PM.LISA',     cor: 'ROXO'    },
-  { codigo: 15, tipo: 'PM.LISA',     cor: 'BRA'     },
-  { codigo: 16, tipo: 'PM.LISA',     cor: 'AZUL'    },
-  { codigo: 17, tipo: 'CM.LISA',     cor: 'PRE'     },
-  { codigo: 18, tipo: 'CM.LISA',     cor: 'BEGE'    },
-  { codigo: 19, tipo: 'CM.LISA',     cor: 'ROXO'    },
-  { codigo: 20, tipo: 'CM.LISA',     cor: 'BRA'     },
-  { codigo: 21, tipo: 'CM.LISA',     cor: 'VERM'    },
-  { codigo: 22, tipo: 'CM.LISA',     cor: 'VERDE'   },
-  { codigo: 23, tipo: 'CM.LISA',     cor: 'GRAF'    },
-  { codigo: 24, tipo: 'CM.LISA',     cor: 'MARINHO' },
-  { codigo: 25, tipo: 'CM.LISA',     cor: 'MARROM'  },
-  { codigo: 26, tipo: 'CM.TRI.LISA', cor: 'CAQUI'   },
-  { codigo: 27, tipo: 'SM.LISA',     cor: 'PRE'     },
-  { codigo: 28, tipo: 'SM.LISA',     cor: 'BEGE'    },
-  { codigo: 29, tipo: 'SM.LISA',     cor: 'CINZA'   },
-  { codigo: 30, tipo: 'SM.LISA',     cor: 'BRA'     },
-  { codigo: 31, tipo: 'SM.LISA',     cor: 'MARINHO' },
-  { codigo: 32, tipo: 'SM.LISA',     cor: 'MARROM'  },
-  { codigo: 33, tipo: 'BM.LISA',     cor: 'PRE'     },
-  { codigo: 34, tipo: 'BM.LISA',     cor: 'BEGE'    },
-  { codigo: 35, tipo: 'BM.LISA',     cor: 'ROXO'    },
-  { codigo: 36, tipo: 'BM.LISA',     cor: 'BRA'     },
-  { codigo: 37, tipo: 'BM.LISA',     cor: 'VERM'    },
-  { codigo: 38, tipo: 'BM.LISA',     cor: 'VERDE'   },
-  { codigo: 39, tipo: 'BM.LISA',     cor: 'MARROM'  },
-  { codigo: 40, tipo: 'BM.LISA',     cor: 'MOSTARDA'},
-  { codigo: 41, tipo: 'CM.TRI.LISA', cor: 'VERDE'   },
-  { codigo: 42, tipo: 'CM.REC.LISA', cor: 'VERDE'   },
-  { codigo: 43, tipo: 'CM.REC.LISA', cor: 'VERM'    },
-  { codigo: 44, tipo: 'CM.REC.LISA', cor: 'PRE'     },
-  { codigo: 51, tipo: 'CM.TRI.LISA', cor: 'PRE'     },
-  { codigo: 52, tipo: 'CM.TRI.LISA', cor: 'BRA'     },
-  { codigo: 53, tipo: 'CM.REC.LISA', cor: 'ROXO'    },
-  { codigo: 54, tipo: 'CONJINF',     cor: 'GRAF'    },
-  { codigo: 55, tipo: 'CONJINF',     cor: 'MARSALA' },
-  { codigo: 56, tipo: 'CONJINF',     cor: 'MESCLA'  },
-  { codigo: 57, tipo: 'BERM',        cor: 'PRE'     },
-  { codigo: 58, tipo: 'BERM',        cor: 'BRA'     },
-  { codigo: 59, tipo: 'BERM',        cor: 'MESCLA'  },
-  { codigo: 60, tipo: 'SF.BERM.FEM', cor: 'PRE'     },
-  { codigo: 61, tipo: 'SF.BERM.FEM', cor: 'MARINHO' },
-  { codigo: 62, tipo: 'BERM',        cor: 'MAR'     },
-  { codigo: 63, tipo: 'BERM',        cor: 'GRA'     },
-  { codigo: 64, tipo: 'BM.TRI',      cor: 'VERDE'   },
-  { codigo: 65, tipo: 'BM.TRI',      cor: 'BEGE'    },
-  { codigo: 66, tipo: 'BM.TRI',      cor: 'AZUL'    },
-  { codigo: 67, tipo: 'PM.TRI.LISA', cor: 'PRE'     },
-  { codigo: 68, tipo: 'CM.BLACK',    cor: 'PRE'     },
+  { codigo: 12, tipo: 'PM.LISA',     cor: 'PRE',     descricao: 'CAMISETA GOLA POLO PRETO' },
+  { codigo: 13, tipo: 'PM.LISA',     cor: 'BEGE',    descricao: 'CAMISETA GOLA POLO BEGE' },
+  { codigo: 14, tipo: 'PM.LISA',     cor: 'ROXO',    descricao: 'CAMISETA GOLA POLO ROXO' },
+  { codigo: 15, tipo: 'PM.LISA',     cor: 'BRA',     descricao: 'CAMISETA GOLA POLO BRANCO' },
+  { codigo: 16, tipo: 'PM.LISA',     cor: 'AZUL',    descricao: 'CAMISETA GOLA POLO AZUL' },
+  { codigo: 17, tipo: 'CM.LISA',     cor: 'PRE',     descricao: 'CAMISETA BÁSICA PRETO' },
+  { codigo: 18, tipo: 'CM.LISA',     cor: 'BEGE',    descricao: 'CAMISETA BÁSICA BEGE' },
+  { codigo: 19, tipo: 'CM.LISA',     cor: 'ROXO',    descricao: 'CAMISETA BÁSICA VIOLETA' },
+  { codigo: 20, tipo: 'CM.LISA',     cor: 'BRA',     descricao: 'CAMISETA BÁSICA BRANCO' },
+  { codigo: 21, tipo: 'CM.LISA',     cor: 'VERM',    descricao: 'CAMISETA BÁSICA VERMELHO' },
+  { codigo: 22, tipo: 'CM.LISA',     cor: 'VERDE',   descricao: 'CAMISETA BÁSICA VERDE' },
+  { codigo: 23, tipo: 'CM.LISA',     cor: 'GRAF',    descricao: 'CAMISETA BÁSICA GRAFITE' },
+  { codigo: 24, tipo: 'CM.LISA',     cor: 'MARINHO', descricao: 'CAMISETA BÁSICA AZUL MARINHO' },
+  { codigo: 25, tipo: 'CM.LISA',     cor: 'MARROM',  descricao: 'CAMISETA BÁSICA MARROM' },
+  { codigo: 26, tipo: 'CM.TRI.LISA', cor: 'CAQUI',   descricao: 'CAMISETA TRICOLOR CAQUI' },
+  { codigo: 27, tipo: 'SM.LISA',     cor: 'PRE',     descricao: 'BERMUDA TACTEL PRETO' },
+  { codigo: 28, tipo: 'SM.LISA',     cor: 'BEGE',    descricao: 'BERMUDA TACTEL BEGE' },
+  { codigo: 29, tipo: 'SM.LISA',     cor: 'CINZA',   descricao: 'BERMUDA TACTEL CINZA' },
+  { codigo: 30, tipo: 'SM.LISA',     cor: 'BRA',     descricao: 'BERMUDA TACTEL BRANCO' },
+  { codigo: 31, tipo: 'SM.LISA',     cor: 'MARINHO', descricao: 'BERMUDA TACTEL AZUL MARINHO' },
+  { codigo: 32, tipo: 'SM.LISA',     cor: 'MARROM',  descricao: 'BERMUDA TACTEL MARROM' },
+  { codigo: 33, tipo: 'BM.LISA',     cor: 'PRE',     descricao: 'BLUSA CANGURU PRETO' },
+  { codigo: 34, tipo: 'BM.LISA',     cor: 'BEGE',    descricao: 'BLUSA CANGURU BEGE' },
+  { codigo: 35, tipo: 'BM.LISA',     cor: 'ROXO',    descricao: 'BLUSA CANGURU ROXO' },
+  { codigo: 36, tipo: 'BM.LISA',     cor: 'BRA',     descricao: 'BLUSA CANGURU BRANCO' },
+  { codigo: 37, tipo: 'BM.LISA',     cor: 'VERM',    descricao: 'BLUSA CANGURU VERMELHO' },
+  { codigo: 38, tipo: 'BM.LISA',     cor: 'VERDE',   descricao: 'BLUSA CANGURU VERDE' },
+  { codigo: 39, tipo: 'BM.LISA',     cor: 'MARROM',  descricao: 'BLUSA CANGURU MARROM' },
+  { codigo: 40, tipo: 'BM.LISA',     cor: 'MOSTARDA', descricao: 'BLUSA CANGURU MOSTARDA' },
+  { codigo: 41, tipo: 'CM.TRI.LISA', cor: 'VERDE',   descricao: 'CAMISETA TRICOLOR VERDE' },
+  { codigo: 42, tipo: 'CM.REC.LISA', cor: 'VERDE',   descricao: 'CAMISETA RECORTADA VERDE' },
+  { codigo: 43, tipo: 'CM.REC.LISA', cor: 'VERM',    descricao: 'CAMISETA RECORTADA VERMELHO' },
+  { codigo: 44, tipo: 'CM.REC.LISA', cor: 'PRE',     descricao: 'CAMISETA RECORTADA PRETO' },
+  { codigo: 51, tipo: 'CM.TRI.LISA', cor: 'PRE',     descricao: 'CAMISETA TRICOLOR PRETO' },
+  { codigo: 52, tipo: 'CM.TRI.LISA', cor: 'BRA',     descricao: 'CAMISETA TRICOLOR BRANCO' },
+  { codigo: 53, tipo: 'CM.REC.LISA', cor: 'ROXO',    descricao: 'CAMISETA RECORTADA ROXO' },
+  { codigo: 54, tipo: 'CONJINF',     cor: 'GRAF',    descricao: 'CONJUNTO INFANTIL GRAFITE' },
+  { codigo: 55, tipo: 'CONJINF',     cor: 'MARSALA', descricao: 'CONJUNTO INFANTIL MARSALA' },
+  { codigo: 56, tipo: 'CONJINF',     cor: 'MESCLA',  descricao: 'CONJUNTO INFANTIL MESCLA' },
+  { codigo: 57, tipo: 'BERM',        cor: 'PRE',     descricao: 'BERMUDA MOLETOM SPARTANA PRETO' },
+  { codigo: 58, tipo: 'BERM',        cor: 'BRA',     descricao: 'BERMUDA MOLETOM SPARTANA BRANCO' },
+  { codigo: 59, tipo: 'BERM',        cor: 'MESCLA',  descricao: 'BERMUDA MOLETOM SPARTANA MESCLA' },
+  { codigo: 60, tipo: 'SF.BERM.FEM', cor: 'PRE',     descricao: 'BERMUDA FEMININA PRETO' },
+  { codigo: 61, tipo: 'SF.BERM.FEM', cor: 'MARINHO', descricao: 'BERMUDA FEMININA MARINHO' },
+  { codigo: 62, tipo: 'BERM',        cor: 'MAR',     descricao: 'BERMUDA MOLETOM SPARTANA MARSALA' },
+  { codigo: 63, tipo: 'BERM',        cor: 'GRA',     descricao: 'BERMUDA MOLETOM SPARTANA GRAFITE' },
+  { codigo: 64, tipo: 'BM.TRI',      cor: 'VERDE',   descricao: 'BLUSA CANGURU TRICOLOR VERDE' },
+  { codigo: 65, tipo: 'BM.TRI',      cor: 'BEGE',    descricao: 'BLUSA CANGURU TRICOLOR BEGE' },
+  { codigo: 66, tipo: 'BM.TRI',      cor: 'AZUL',    descricao: 'BLUSA CANGURU TRICOLOR AZUL' },
+  { codigo: 67, tipo: 'PM.TRI.LISA', cor: 'PRE',     descricao: 'CAMISETA GOLA POLO TRICOLOR PRETO' },
+  { codigo: 68, tipo: 'CM.BLACK',    cor: 'PRE',     descricao: 'CAMISETA BÁSICA INFANTIL PRETO' },
 ];
 
 // Mapa item → código ERP, usado pra escolher o produto canônico em casos de duplicata.
@@ -312,6 +313,7 @@ function loadState() {
         tamanhos: TAMS_PADRAO.slice(),
         preco: 19.90,
         custom: false,
+        descricaoErp: e.descricao || '',
       });
       codigosExistentes.add(e.codigo);
       cadastrosCriados++;
@@ -337,6 +339,11 @@ function loadState() {
         p.tipo = canonico.tipo;
         p.cor = canonico.cor;
         p.item = itemCanonico;
+        canonicalizadosErp++;
+      }
+      // Garante que descrição canônica está presente (não sobrescreve se já tem)
+      if (!p.descricaoErp && canonico.descricao) {
+        p.descricaoErp = canonico.descricao;
         canonicalizadosErp++;
       }
     });
