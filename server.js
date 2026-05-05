@@ -33,6 +33,33 @@ const DEFAULT_STATE = {
 const CONTAGEM_INICIAL_PADRAO = 300;
 const CONTAGEM_INICIAL_MOTIVO_PREFIX = 'Contagem inicial';
 
+// Mapa item → código ERP canônico, usado pra escolher o produto canônico em casos de duplicata
+// (deve refletir ERP_CATALOGO no client).
+const ERP_CODIGO_PREFERIDO = {
+  'PM.LISA-PRE': 12, 'PM.LISA-BEGE': 13, 'PM.LISA-ROXO': 14, 'PM.LISA-BRA': 15, 'PM.LISA-AZUL': 16,
+  'CM.LISA-PRE': 17, 'CM.LISA-BEGE': 18, 'CM.LISA-ROXO': 19, 'CM.LISA-BRA': 20, 'CM.LISA-VERM': 21,
+  'CM.LISA-VERDE': 22, 'CM.LISA-GRAF': 23, 'CM.LISA-MARINHO': 24, 'CM.LISA-MARROM': 25,
+  'CM.TRI.LISA-CAQUI': 26, 'SM.LISA-PRE': 27, 'SM.LISA-BEGE': 28, 'SM.LISA-CINZA': 29,
+  'SM.LISA-BRA': 30, 'SM.LISA-MARINHO': 31, 'SM.LISA-MARROM': 32, 'BM.LISA-PRE': 33,
+  'BM.LISA-MARROM': 39, 'BM.LISA-MOSTARDA': 40, 'CM.TRI.LISA-VERDE': 41, 'CM.REC.LISA-VERDE': 42,
+  'CM.REC.LISA-VERM': 43, 'CM.REC.LISA-PRE': 44, 'CM.TRI.LISA-PRE': 51, 'CM.TRI.LISA-BRA': 52,
+  'CM.REC.LISA-ROXO': 53, 'BERM-BRA': 58, 'BERM-MAR': 62, 'BM.TRI-VERDE': 64, 'BM.TRI-BEGE': 65,
+  'PM.TRI.LISA-PRE': 67,
+};
+
+// Apelidos de tipo do ERP → tipo canônico do programa (espelha TIPO_ALIASES no client).
+const TIPO_ALIASES = {
+  'SM.LISO': 'SM.LISA',
+  'SM.LIS0': 'SM.LISA',
+  'BM.LISO': 'BM.LISA',
+  'CM.TRI':  'CM.TRI.LISA',
+};
+
+function tipoCanonico(tipo) {
+  const t = String(tipo || '').toUpperCase().trim();
+  return TIPO_ALIASES[t] || t;
+}
+
 const DESTINOS_VALIDOS = new Set(['cliente', 'cancelamento', 'devolucao', 'defeitos']);
 const TAMANHOS_ORDEM = ['P', 'M', 'G', 'GG', 'G1', 'G2', 'G3'];
 const TAMANHOS_VALIDOS = new Set(TAMANHOS_ORDEM);
@@ -100,7 +127,77 @@ function loadState() {
     });
     if (itensCorrigidos > 0) console.log('[state] limpou sufixo de tamanho em', itensCorrigidos, 'produto(s) com nome legado');
     if (legadosLimpos > 0) console.log('[state] removeu campo legado `tamanho` de', legadosLimpos, 'produto(s)');
-    let dirty = migradosVazio > 0 || reordenados > 0 || itensCorrigidos > 0 || legadosLimpos > 0;
+
+    // Migração: canonicaliza tipo (apelidos LISO/LISA, CM.TRI/CM.TRI.LISA) e item
+    let tiposCanonicalizados = 0;
+    produtos.forEach(p => {
+      if (typeof p.tipo === 'string') {
+        const tc = tipoCanonico(p.tipo);
+        if (tc !== p.tipo) {
+          p.tipo = tc;
+          // Reconstrói item se necessário (formato 'TIPO-COR')
+          const idx = (p.item || '').indexOf('-');
+          if (idx > 0) {
+            const cor = p.item.slice(idx + 1);
+            p.item = tc + '-' + cor;
+          }
+          tiposCanonicalizados++;
+        }
+      }
+    });
+    if (tiposCanonicalizados > 0) console.log('[state] canonicalizou tipo de', tiposCanonicalizados, 'produto(s) (apelidos LISO/LISA etc.)');
+
+    // Migração: dedup produtos com mesmo `item` (mesmo tipo+cor após canonicalização).
+    // Mantém o canônico (preferindo codigo ERP). Migra entradas/saídas/ajustes pra ele.
+    const entradas = Array.isArray(data.entradas) ? data.entradas : [];
+    const saidas = Array.isArray(data.saidas) ? data.saidas : [];
+    const grupos = new Map();
+    produtos.forEach(p => {
+      const key = String(p.item || '');
+      if (!key) return;
+      if (!grupos.has(key)) grupos.set(key, []);
+      grupos.get(key).push(p);
+    });
+    let duplicatasRemovidas = 0, refsRemapeadas = 0;
+    const codigoMap = new Map(); // codigo antigo → codigo canônico
+    const idsRemoverProdutos = new Set();
+    grupos.forEach((arr, item) => {
+      if (arr.length <= 1) return;
+      // Escolhe canônico: 1) preferido pelo ERP_CODIGO_PREFERIDO[item]; 2) menor codigo
+      const preferido = ERP_CODIGO_PREFERIDO[item];
+      let canonico = arr.find(p => p.codigo === preferido) ||
+                     arr.slice().sort((a, b) => a.codigo - b.codigo)[0];
+      arr.forEach(p => {
+        if (p === canonico) return;
+        codigoMap.set(p.codigo, canonico.codigo);
+        idsRemoverProdutos.add(p.codigo);
+        // Une tamanhos
+        (p.tamanhos || []).forEach(t => {
+          if (!canonico.tamanhos) canonico.tamanhos = [];
+          if (!canonico.tamanhos.includes(t)) canonico.tamanhos.push(t);
+        });
+        duplicatasRemovidas++;
+      });
+      canonico.tamanhos = ordenarTamanhos(canonico.tamanhos || []);
+    });
+    if (codigoMap.size > 0) {
+      // Remapeia referências em entradas/saídas/ajustes
+      [entradas, saidas, ajustes].forEach(arr => {
+        arr.forEach(rec => {
+          if (codigoMap.has(rec.codigo)) {
+            rec.codigo = codigoMap.get(rec.codigo);
+            refsRemapeadas++;
+          }
+        });
+      });
+      // Remove produtos duplicados
+      for (let i = produtos.length - 1; i >= 0; i--) {
+        if (idsRemoverProdutos.has(produtos[i].codigo)) produtos.splice(i, 1);
+      }
+    }
+    if (duplicatasRemovidas > 0) console.log('[state] dedup:', duplicatasRemovidas, 'produto(s) duplicado(s) removido(s),', refsRemapeadas, 'referência(s) remapeada(s)');
+
+    let dirty = migradosVazio > 0 || reordenados > 0 || itensCorrigidos > 0 || legadosLimpos > 0 || tiposCanonicalizados > 0 || duplicatasRemovidas > 0;
     const ajustes = Array.isArray(data.ajustes) ? data.ajustes : [];
     // Migração: para QUALQUER (codigo, tamanho) sem ajuste registrado, cria 300 un. de
     // contagem inicial. Cobre tanto produtos auto-cadastrados quanto produtos manuais
@@ -534,10 +631,40 @@ app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res)
     tamanhosAdicionados: 0,
     invalidas: 0,
     semDiferenca: 0,
+    linhasAgregadas: 0,
     problemas: [],
   };
   const novasSaidas = [];
   const novosAjustes = [];
+
+  // Pre-agrega linhas com mesma (codigo, tamanho) somando quantidades — evita
+  // duplicar saídas/ajustes quando o mesmo SKU aparece múltiplas vezes no relatório.
+  function aggregarLinhas(rows) {
+    const map = new Map();
+    let agregadas = 0;
+    rows.forEach((row, originalIndex) => {
+      const codigo = asInt(row.codigo);
+      const tamanho = asTamanho(row.tamanho);
+      const quantidade = asInt(row.quantidade);
+      if (!codigo || !tamanho || !Number.isFinite(quantidade)) {
+        // Inválida — preserva pra reportar erro depois
+        map.set('invalid:' + originalIndex, { row: Object.assign({}, row), originalIndex, agregada: false });
+        return;
+      }
+      const key = codigo + '|' + tamanho;
+      if (map.has(key)) {
+        const existing = map.get(key);
+        existing.row.quantidade = (asInt(existing.row.quantidade) || 0) + quantidade;
+        existing.agregada = true;
+        agregadas++;
+      } else {
+        map.set(key, { row: Object.assign({}, row), originalIndex, agregada: false });
+      }
+    });
+    result.linhasAgregadas = agregadas;
+    return [...map.values()].sort((a, b) => a.originalIndex - b.originalIndex);
+  }
+  const linhasAgregadas = aggregarLinhas(rows);
   const novosProdutos = [];
   const tamanhosPendentes = new Map();
 
@@ -583,12 +710,12 @@ app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res)
     return true;
   }
 
-  rows.forEach((row, i) => {
-    const linha = i + 1;
+  linhasAgregadas.forEach(({ row, originalIndex }) => {
+    const linha = originalIndex + 1;
     const codigo = asInt(row.codigo);
     const tamanho = asTamanho(row.tamanho);
     const quantidade = asInt(row.quantidade);
-    const tipo = asStr(row.tipo).toUpperCase();
+    const tipo = tipoCanonico(asStr(row.tipo));
     const cor = asStr(row.cor).toUpperCase();
     const descricao = asStr(row.descricao);
     const preco = asNum(row.preco);

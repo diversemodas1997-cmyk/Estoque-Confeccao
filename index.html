@@ -2055,6 +2055,7 @@
       html += '<span>📤 Saídas a criar: <strong>' + (r.saidasCriadas || 0) + '</strong></span>';
       html += '<span>🆕 Produtos a auto-cadastrar: <strong>' + (r.produtosCriados || 0) + '</strong></span>';
       html += '<span>➕ Tamanhos a adicionar: <strong>' + (r.tamanhosAdicionados || 0) + '</strong></span>';
+      if ((r.linhasAgregadas || 0) > 0) html += '<span>🧮 Linhas agregadas (mesmo SKU): <strong>' + r.linhasAgregadas + '</strong></span>';
       html += '<span>= Quantidade zero: <strong>' + (r.semDiferenca || 0) + '</strong></span>';
       html += '<span>⚠️ Inválidas: <strong>' + (r.invalidas || 0) + '</strong></span>';
       html += '</div>';
