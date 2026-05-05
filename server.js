@@ -321,7 +321,28 @@ function loadState() {
       console.log('[state] cadastrou', cadastrosCriados, 'produto(s) canônico(s) faltante(s) do ERP_CATALOGO');
     }
 
-    let dirty = migradosVazio > 0 || reordenados > 0 || itensCorrigidos > 0 || legadosLimpos > 0 || tiposCanonicalizados > 0 || duplicatasRemovidas > 0 || cadastrosCriados > 0;
+    // Migração: corrige produtos existentes cujo codigo está no ERP_CATALOGO mas tipo/cor
+    // divergem do canônico (resultado de auto-cadastros antigos com descrição do PDF, antes
+    // do fix que faz o catálogo prevalecer). O catálogo PREVALECE — isso reescreve tipo/cor/item
+    // pra valores canônicos. NÃO toca em preço/tamanhos (preserva customizações).
+    let canonicalizadosErp = 0;
+    produtos.forEach(p => {
+      const canonico = ERP_CATALOGO.find(e => e.codigo === p.codigo);
+      if (!canonico) return;
+      const itemCanonico = canonico.tipo + '-' + canonico.cor;
+      if (p.tipo !== canonico.tipo || p.cor !== canonico.cor || p.item !== itemCanonico) {
+        console.log('[state] corrigindo produto', p.codigo,
+          'de', JSON.stringify({ tipo: p.tipo, cor: p.cor, item: p.item }),
+          'para', JSON.stringify({ tipo: canonico.tipo, cor: canonico.cor, item: itemCanonico }));
+        p.tipo = canonico.tipo;
+        p.cor = canonico.cor;
+        p.item = itemCanonico;
+        canonicalizadosErp++;
+      }
+    });
+    if (canonicalizadosErp > 0) console.log('[state] canonicalizou', canonicalizadosErp, 'produto(s) pelo ERP_CATALOGO (catálogo prevalece)');
+
+    let dirty = migradosVazio > 0 || reordenados > 0 || itensCorrigidos > 0 || legadosLimpos > 0 || tiposCanonicalizados > 0 || duplicatasRemovidas > 0 || cadastrosCriados > 0 || canonicalizadosErp > 0;
     // Migração: para QUALQUER (codigo, tamanho) sem ajuste registrado, cria 300 un. de
     // contagem inicial. Cobre tanto produtos auto-cadastrados quanto produtos manuais
     // ou seed que ficaram sem ajuste por algum motivo (seed parcial, deploy migrado, etc.).
@@ -830,26 +851,39 @@ app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res)
   const tamanhosPendentes = new Map();
 
   function buscarOuCriarProduto(linha, codigo, tipo, cor, descricao, preco) {
+    // Produto existente NUNCA é modificado pela importação — preserva tipo/cor/item/preço
+    // do cadastro canônico (vindo do ERP_CATALOGO ou cadastrado manualmente).
     let p = state.produtos.find(x => x.codigo === codigo);
     if (p) return p;
     p = novosProdutos.find(x => x.codigo === codigo);
     if (p) return p;
-    if (!tipo || !cor) {
-      result.problemas.push({ linha, motivo: 'Não foi possível inferir tipo/cor para o código ' + codigo + ' a partir da descrição "' + descricao + '"' });
-      return null;
+    // Auto-cadastro: se o codigo está no catálogo canônico (ERP_CATALOGO), usa os valores
+    // canônicos em vez dos extraídos da descrição do PDF — o catálogo PREVALECE.
+    const canonico = ERP_CATALOGO.find(e => e.codigo === codigo);
+    let tipoFinal, corFinal;
+    if (canonico) {
+      tipoFinal = canonico.tipo;
+      corFinal = canonico.cor;
+    } else {
+      if (!tipo || !cor) {
+        result.problemas.push({ linha, motivo: 'Não foi possível inferir tipo/cor para o código ' + codigo + ' a partir da descrição "' + descricao + '"' });
+        return null;
+      }
+      tipoFinal = tipo;
+      corFinal = cor;
     }
-    const item = tipo + '-' + cor;
+    const item = tipoFinal + '-' + corFinal;
     // Auto-cadastro pré-popula TODOS os tamanhos padrão; tamanhos não mencionados
     // no relatório ainda estarão disponíveis pra movimentação manual depois.
     p = {
       codigo,
       item,
-      tipo,
-      cor,
+      tipo: tipoFinal,
+      cor: corFinal,
       tamanhos: Array.from(TAMANHOS_VALIDOS),
-      preco: Number.isFinite(preco) && preco > 0 ? preco : 0,
-      custom: true,
-      autoCadastro: true,
+      preco: Number.isFinite(preco) && preco > 0 ? preco : 19.90,
+      custom: !canonico,
+      autoCadastro: !canonico,
       descricaoErp: descricao || '',
     };
     novosProdutos.push(p);
