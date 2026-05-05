@@ -80,14 +80,17 @@ function loadState() {
     });
     if (migradosVazio > 0) console.log('[state] preencheu tamanhos em', migradosVazio, 'produto(s) vazio(s)');
     if (reordenados > 0) console.log('[state] reordenou tamanhos em', reordenados, 'produto(s)');
+    let dirty = migradosVazio > 0 || reordenados > 0;
     const ajustes = Array.isArray(data.ajustes) ? data.ajustes : [];
-    // Migração: produtos auto-cadastrados (via import) sem contagem inicial recebem 300 un. por tamanho
+    // Migração: para QUALQUER (codigo, tamanho) sem ajuste registrado, cria 300 un. de
+    // contagem inicial. Cobre tanto produtos auto-cadastrados quanto produtos manuais
+    // ou seed que ficaram sem ajuste por algum motivo (seed parcial, deploy migrado, etc.).
+    // Idempotente: SKUs com qualquer ajuste preexistente são pulados.
     const ajustesIndex = new Set();
     ajustes.forEach(a => ajustesIndex.add(a.codigo + '|' + a.tamanho));
     let contagensCriadas = 0;
     const hojeIso = new Date().toISOString().slice(0, 10);
     produtos.forEach(p => {
-      if (!p.autoCadastro) return;
       (p.tamanhos || []).forEach(t => {
         if (ajustesIndex.has(p.codigo + '|' + t)) return;
         ajustes.push({
@@ -98,14 +101,15 @@ function loadState() {
           qtdContada: CONTAGEM_INICIAL_PADRAO,
           qtdAnterior: 0,
           diferenca: CONTAGEM_INICIAL_PADRAO,
-          motivo: CONTAGEM_INICIAL_MOTIVO_PREFIX + ' (auto-cadastro)',
+          motivo: CONTAGEM_INICIAL_MOTIVO_PREFIX + ' (preenchimento)',
           origem: 'auto-fix-migration',
         });
         ajustesIndex.add(p.codigo + '|' + t);
         contagensCriadas++;
       });
     });
-    if (contagensCriadas > 0) console.log('[state] criou', contagensCriadas, 'contagem(ns) inicial(is) em produtos auto-cadastrados');
+    if (contagensCriadas > 0) console.log('[state] criou', contagensCriadas, 'contagem(ns) inicial(is) em SKUs sem ajuste');
+    if (contagensCriadas > 0) dirty = true;
     return {
       versao: data.versao || 3,
       produtos,
@@ -115,6 +119,7 @@ function loadState() {
       config: Object.assign({ estoqueMin: 5, estoqueMax: 100 }, data.config || {}),
       users: Array.isArray(data.users) && data.users.length ? data.users : DEFAULT_USERS.slice(),
       atualizado_em: data.atualizado_em || null,
+      _dirty: dirty,
     };
   } catch (err) {
     console.error('[state] erro ao ler estoque.json, usando default:', err.message);
@@ -124,6 +129,16 @@ function loadState() {
 
 let state = loadState();
 let writeQueue = Promise.resolve();
+
+// Se a migração modificou o estado em memória, persiste já no boot pra evitar
+// que um restart sem mutações refaça a migração com IDs novos.
+if (state._dirty) {
+  delete state._dirty;
+  // Dispara persist em modo fire-and-forget; o writeQueue garante serialização.
+  Promise.resolve().then(() => persist()).catch(err => console.error('[boot persist]', err));
+} else {
+  delete state._dirty;
+}
 
 function persist() {
   writeQueue = writeQueue.then(async () => {
