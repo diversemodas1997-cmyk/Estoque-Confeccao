@@ -1151,6 +1151,22 @@ app.post('/api/admin/zerar-contagem-auto', authMiddleware, adminOnly, async (req
   });
 });
 
+// Apaga saídas oriundas de importação do ERP (origem='erp-import'). Saídas manuais
+// (registradas via formulário no app) são preservadas.
+app.post('/api/admin/zerar-saidas-erp', authMiddleware, adminOnly, async (req, res) => {
+  const antes = state.saidas.length;
+  const removidas = state.saidas.filter(s => s.origem === 'erp-import');
+  state.saidas = state.saidas.filter(s => s.origem !== 'erp-import');
+  await persist();
+  broadcast();
+  res.json({
+    ok: true,
+    removidas: removidas.length,
+    preservadas: state.saidas.length,
+    total_antes: antes,
+  });
+});
+
 app.post('/api/reset-catalogo', authMiddleware, adminOnly, async (req, res) => {
   if (state.entradas.length > 0 || state.saidas.length > 0) {
     return res.status(409).json({ error: 'Não é possível resetar: existem entradas/saídas registradas.' });
