@@ -46,11 +46,12 @@
     border-bottom: 1px solid var(--border);
     padding: 18px 32px;
     box-shadow: var(--shadow-sm);
-    /* Padrão (mobile): rola junto com a página */
+    /* Padrão (mobile/tablet/landscape de celular): rola junto com a página */
     position: static;
   }
-  /* Desktop: cabeçalho fica fixo no topo enquanto a página rola */
-  @media (min-width: 901px) {
+  /* Sticky apenas em desktop com mouse (hover: hover + pointer: fine) E largura
+     suficiente. Isso exclui celulares em qualquer orientação e tablets com toque. */
+  @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
     header.app-header {
       position: sticky;
       top: 0;
