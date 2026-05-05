@@ -947,9 +947,15 @@
       <p class="helper">Ações destrutivas que limpam dados em lote. Use ao iniciar uma contagem manual do zero. <strong>Não desfaz</strong>.</p>
 
       <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="padding: 10px; border: 1px solid var(--accent, #3b82f6); border-radius: var(--radius); background: rgba(59,130,246,0.05);">
+          <div style="font-weight: 600; margin-bottom: 4px;">🧹 Limpar movimentações (modo manual completo)</div>
+          <p class="helper" style="margin: 4px 0 8px 0;">Apaga <strong>todas as entradas, todas as saídas (incluindo do ERP) e ajustes automáticos</strong> do sistema. Preserva apenas os ajustes manuais (contagens inseridas pelo usuário) e recalcula suas diferenças. Após esta operação, o estoque de cada SKU iguala a última contagem manual.</p>
+          <button type="button" id="btn-admin-limpar-movimentacoes" class="primary">Limpar tudo, manter contagem manual</button>
+        </div>
+
         <div style="padding: 10px; border: 1px solid var(--border); border-radius: var(--radius);">
           <div style="font-weight: 600; margin-bottom: 4px;">Zerar saídas vindas do ERP</div>
-          <p class="helper" style="margin: 4px 0 8px 0;">Apaga todas as saídas com origem = importação de relatório. Saídas registradas manualmente via formulário ficam intactas.</p>
+          <p class="helper" style="margin: 4px 0 8px 0;">Apaga apenas as saídas com origem = importação de relatório. Saídas registradas manualmente via formulário ficam intactas.</p>
           <button type="button" id="btn-admin-zerar-saidas-erp" class="ghost">Zerar saídas do ERP</button>
         </div>
 
@@ -2530,6 +2536,24 @@
   });
 
   // Operações administrativas (modo manual)
+  document.getElementById('btn-admin-limpar-movimentacoes').addEventListener('click', async () => {
+    if (!isAdmin()) { toast('Apenas administradores.', 'error'); return; }
+    if (!confirm('LIMPAR TUDO?\n\nIsso apaga:\n• Todas as entradas\n• Todas as saídas (manuais e do ERP)\n• Ajustes automáticos (Contagem inicial...)\n\nPreserva apenas ajustes manuais e recalcula suas diferenças.\n\nESTA AÇÃO NÃO PODE SER DESFEITA. Continuar?')) return;
+    if (!confirm('Tem certeza? Última confirmação.')) return;
+    try {
+      const r = await api('POST', '/api/admin/limpar-movimentacoes');
+      const div = document.getElementById('admin-resultado');
+      div.innerHTML = '<div class="info-box" style="background:var(--bg-soft); flex-direction:column; align-items:stretch;">'
+        + '<span>🗑️ Entradas removidas: <strong>' + r.entradasRemovidas + '</strong></span>'
+        + '<span>🗑️ Saídas removidas: <strong>' + r.saidasRemovidas + '</strong></span>'
+        + '<span>🗑️ Ajustes auto removidos: <strong>' + r.ajustesAutoRemovidos + '</strong></span>'
+        + '<span>📌 Ajustes manuais preservados: <strong>' + r.ajustesManuaisPreservados + '</strong> (em ' + r.skusComContagemManual + ' SKU(s))</span>'
+        + '<span>🔄 Diferenças recalculadas: <strong>' + r.ajustesRecalculados + '</strong></span>'
+        + '</div>';
+      toast('Sistema resetado. ' + r.ajustesManuaisPreservados + ' ajuste(s) manual(is) preservado(s).');
+    } catch (ex) { toast(ex.message, 'error'); }
+  });
+
   document.getElementById('btn-admin-zerar-saidas-erp').addEventListener('click', async () => {
     if (!isAdmin()) { toast('Apenas administradores.', 'error'); return; }
     if (!confirm('Apagar TODAS as saídas vindas de importação de relatório? (Saídas manuais ficam intactas, esta ação não pode ser desfeita)')) return;

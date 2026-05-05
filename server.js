@@ -1192,6 +1192,56 @@ app.post('/api/admin/zerar-contagem-auto', authMiddleware, adminOnly, async (req
   }, responseExtras));
 });
 
+// Reset completo de movimentação preservando APENAS ajustes manuais (contagem do usuário).
+// Apaga: TODAS as entradas, TODAS as saídas (manuais + ERP), e ajustes auto (Contagem inicial,
+// auto-fix-migration, erp-import). Mantém ajustes manuais (motivo não auto). Recalcula
+// `qtdAnterior` e `diferenca` dos ajustes preservados pra refletirem o novo baseline (estoque
+// vai igualar ao último qtdContada manual de cada SKU).
+app.post('/api/admin/limpar-movimentacoes', authMiddleware, adminOnly, async (req, res) => {
+  const isAuto = (a) => (a.motivo || '').startsWith(CONTAGEM_INICIAL_MOTIVO_PREFIX) || a.origem === 'auto-fix-migration' || a.origem === 'erp-import';
+  const totEnt = state.entradas.length;
+  const totSai = state.saidas.length;
+  const totAj = state.ajustes.length;
+  state.entradas = [];
+  state.saidas = [];
+  const ajustesAntes = state.ajustes;
+  state.ajustes = ajustesAntes.filter(a => !isAuto(a));
+  const ajustesAutoRemovidos = totAj - state.ajustes.length;
+
+  // Recalcula diferenças dos ajustes manuais preservados (estado pós-limpeza, sem entradas/saidas)
+  const skus = new Set();
+  state.ajustes.forEach(a => skus.add(a.codigo + '|' + a.tamanho));
+  let ajustesRecalculados = 0;
+  skus.forEach(skuKey => {
+    const [codStr, tamanho] = skuKey.split('|');
+    const codigo = parseInt(codStr, 10);
+    const ajs = state.ajustes
+      .filter(a => a.codigo === codigo && a.tamanho === tamanho)
+      .sort((a, b) => (a.data || '').localeCompare(b.data || '') || (a.id || '').localeCompare(b.id || ''));
+    let running = 0;
+    for (const a of ajs) {
+      const novaDiff = a.qtdContada - running;
+      if (a.qtdAnterior !== running || a.diferenca !== novaDiff) ajustesRecalculados++;
+      a.qtdAnterior = running;
+      a.diferenca = novaDiff;
+      running = a.qtdContada;
+    }
+  });
+
+  state.seedContagemInicialFeito = true;
+  await persist();
+  broadcast();
+  res.json({
+    ok: true,
+    entradasRemovidas: totEnt,
+    saidasRemovidas: totSai,
+    ajustesAutoRemovidos,
+    ajustesManuaisPreservados: state.ajustes.length,
+    ajustesRecalculados,
+    skusComContagemManual: skus.size,
+  });
+});
+
 // Apaga saídas oriundas de importação do ERP (origem='erp-import'). Saídas manuais
 // (registradas via formulário no app) são preservadas.
 app.post('/api/admin/zerar-saidas-erp', authMiddleware, adminOnly, async (req, res) => {
