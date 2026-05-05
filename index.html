@@ -1331,6 +1331,7 @@
   let entradas = [];
   let saidas = [];
   let ajustes = [];
+  let seedContagemInicialFeito = false;
 
   function fmtBRL(v) { return 'R$ ' + (Math.round(v * 100) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function fmtNum(v) { return Math.round(v).toLocaleString('pt-BR'); }
@@ -1823,6 +1824,7 @@
     entradas = Array.isArray(s.entradas) ? s.entradas : [];
     saidas = Array.isArray(s.saidas) ? s.saidas : [];
     ajustes = Array.isArray(s.ajustes) ? s.ajustes : [];
+    seedContagemInicialFeito = !!s.seedContagemInicialFeito;
     if (s.config && typeof s.config === 'object') {
       if (Number.isFinite(s.config.estoqueMin)) config.estoqueMin = s.config.estoqueMin;
       if (Number.isFinite(s.config.estoqueMax)) config.estoqueMax = s.config.estoqueMax;
@@ -2179,8 +2181,9 @@
           if (err.status !== 409) throw err;
         }
       }
-      // 2. Cria contagem inicial se nenhum SKU tem ajuste E nada de movimento foi registrado.
-      //    Idempotente: detecta seed prévio pelo motivo, ou pela presença de qualquer ajuste/movimento.
+      // 2. Cria contagem inicial APENAS se o seed nunca foi feito (flag do servidor).
+      //    Sem essa guarda, após o usuário zerar o estoque, a função reseedaria 300 un.
+      if (seedContagemInicialFeito) return;
       const jaSemeado = ajustes.some(a => a.motivo === SEED_MOTIVO || (a.motivo || '').startsWith('Contagem inicial'));
       const temMovimento = entradas.length > 0 || saidas.length > 0;
       if (jaSemeado || temMovimento) return;

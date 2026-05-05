@@ -504,6 +504,7 @@ function publicState() {
     ajustes: state.ajustes,
     config: state.config,
     atualizado_em: state.atualizado_em,
+    seedContagemInicialFeito: !!state.seedContagemInicialFeito,
   };
 }
 
@@ -823,6 +824,11 @@ app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res)
   if (rows.length > 5000) return res.status(400).json({ error: 'Limite de 5000 linhas por importação.' });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dataContagem)) {
     return res.status(400).json({ error: 'Data inválida (use YYYY-MM-DD).' });
+  }
+  // Guarda: ação 'contagem' (seed inicial automático) só roda se ainda não foi feita.
+  // Protege contra cliente reseedar após o usuário ter zerado o estoque manualmente.
+  if (acao === 'contagem' && state.seedContagemInicialFeito) {
+    return res.status(409).json({ error: 'Seed de contagem inicial já foi feito ou desativado pelo usuário.', seedJaFeito: true });
   }
 
   const result = {
