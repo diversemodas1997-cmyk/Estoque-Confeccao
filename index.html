@@ -941,6 +941,30 @@
         <button type="submit" class="primary">Salvar configurações</button>
       </form>
     </div>
+
+    <div class="card" data-admin-only style="max-width: 720px; margin-top: 18px;">
+      <h2>Operações administrativas (modo manual)</h2>
+      <p class="helper">Ações destrutivas que limpam dados em lote. Use ao iniciar uma contagem manual do zero. <strong>Não desfaz</strong>.</p>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="padding: 10px; border: 1px solid var(--border); border-radius: var(--radius);">
+          <div style="font-weight: 600; margin-bottom: 4px;">Zerar saídas vindas do ERP</div>
+          <p class="helper" style="margin: 4px 0 8px 0;">Apaga todas as saídas com origem = importação de relatório. Saídas registradas manualmente via formulário ficam intactas.</p>
+          <button type="button" id="btn-admin-zerar-saidas-erp" class="ghost">Zerar saídas do ERP</button>
+        </div>
+
+        <div style="padding: 10px; border: 1px solid var(--border); border-radius: var(--radius);">
+          <div style="font-weight: 600; margin-bottom: 4px;">Zerar contagem automática (preservar manuais de um tipo)</div>
+          <p class="helper" style="margin: 4px 0 8px 0;">Apaga as contagens iniciais automáticas (300 un./SKU) e quaisquer ajustes vindos da importação. Para o tipo informado, ajustes manuais são preservados e suas diferenças são recalculadas para refletir o novo baseline. Para os demais, todos os ajustes são apagados.</p>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <input type="text" id="admin-tipo-preservar" placeholder="Tipo com manuais (ex: CM.LISA)" style="flex: 1; min-width: 200px;" value="CM.LISA">
+            <button type="button" id="btn-admin-zerar-contagem-auto" class="ghost">Zerar contagem auto</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="admin-resultado" style="margin-top: 12px;"></div>
+    </div>
   </section>
 
   <section id="view-fifo" class="app-section">
@@ -2503,6 +2527,38 @@
       fecharModalEditUser();
       fecharModalSenha();
     }
+  });
+
+  // Operações administrativas (modo manual)
+  document.getElementById('btn-admin-zerar-saidas-erp').addEventListener('click', async () => {
+    if (!isAdmin()) { toast('Apenas administradores.', 'error'); return; }
+    if (!confirm('Apagar TODAS as saídas vindas de importação de relatório? (Saídas manuais ficam intactas, esta ação não pode ser desfeita)')) return;
+    try {
+      const r = await api('POST', '/api/admin/zerar-saidas-erp');
+      const div = document.getElementById('admin-resultado');
+      div.innerHTML = '<div class="info-box" style="background:var(--bg-soft);"><span>✅ Removidas: <strong>' + r.removidas + '</strong> saídas do ERP. Preservadas: <strong>' + r.preservadas + '</strong>.</span></div>';
+      toast(r.removidas + ' saída(s) do ERP apagada(s).');
+    } catch (ex) { toast(ex.message, 'error'); }
+  });
+
+  document.getElementById('btn-admin-zerar-contagem-auto').addEventListener('click', async () => {
+    if (!isAdmin()) { toast('Apenas administradores.', 'error'); return; }
+    const tipoPreservar = document.getElementById('admin-tipo-preservar').value.trim().toUpperCase();
+    const msg = tipoPreservar
+      ? 'Zerar TODOS os ajustes automáticos? (Ajustes manuais do tipo "' + tipoPreservar + '" são preservados e diferenças recalculadas. Demais tipos perdem todos os ajustes.) Esta ação não pode ser desfeita.'
+      : 'Zerar TODOS os ajustes (auto e ERP)? Esta ação não pode ser desfeita.';
+    if (!confirm(msg)) return;
+    try {
+      const r = await api('POST', '/api/admin/zerar-contagem-auto', { tipoComManuais: tipoPreservar });
+      const div = document.getElementById('admin-resultado');
+      div.innerHTML = '<div class="info-box" style="background:var(--bg-soft); flex-direction:column; align-items:stretch;">'
+        + '<span>✅ Removidos: <strong>' + r.removidos + '</strong> ajuste(s) auto.</span>'
+        + '<span>📌 Preservados: <strong>' + r.preservados + '</strong> ajuste(s) manual.</span>'
+        + '<span>🔄 Recalculados: <strong>' + (r.ajustesRecalculados || 0) + '</strong> ajuste(s) (em ' + (r.skusRecalculados || 0) + ' SKU(s)).</span>'
+        + '<span style="font-size:11px; color:var(--text-mute); margin-top:4px;">Códigos preservados: ' + (r.codigosPreservados || []).join(', ') + '</span>'
+        + '</div>';
+      toast(r.removidos + ' ajuste(s) auto removidos, ' + (r.ajustesRecalculados || 0) + ' manual(is) recalculado(s).');
+    } catch (ex) { toast(ex.message, 'error'); }
   });
 
   document.getElementById('btn-trocar-senha').addEventListener('click', abrirModalSenha);

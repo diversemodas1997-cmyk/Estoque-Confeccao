@@ -1145,17 +1145,51 @@ app.post('/api/admin/zerar-contagem-auto', authMiddleware, adminOnly, async (req
     removidos.push(a);
     return false;
   });
+
+  // Recalcula `diferenca` e `qtdAnterior` dos ajustes preservados, considerando o estado
+  // POSTERIOR à remoção dos auto. Sem isso, ajustes manuais inseridos quando o auto +300
+  // estava ativo ficariam com diferenca = -250 (contado 50 - anterior 300), gerando
+  // estoque negativo. Após o recalc, diferenca = qtdContada (qtdAnterior efetivo = 0).
+  const skusRecalcular = new Set();
+  state.ajustes.forEach(a => {
+    if (codigosPreservar.has(a.codigo)) skusRecalcular.add(a.codigo + '|' + a.tamanho);
+  });
+  let ajustesRecalculados = 0;
+  skusRecalcular.forEach(skuKey => {
+    const [codStr, tamanho] = skuKey.split('|');
+    const codigo = parseInt(codStr, 10);
+    const ev = [];
+    state.entradas.forEach(e => { if (e.codigo === codigo && e.tamanho === tamanho) ev.push({ kind: 'ent', data: e.data || '', id: e.id || '', quantidade: e.quantidade }); });
+    state.saidas.forEach(s => { if (s.codigo === codigo && s.tamanho === tamanho) ev.push({ kind: 'sai', data: s.data || '', id: s.id || '', quantidade: s.quantidade }); });
+    state.ajustes.forEach(a => { if (a.codigo === codigo && a.tamanho === tamanho) ev.push({ kind: 'aj', data: a.data || '', id: a.id || '', obj: a }); });
+    ev.sort((a, b) => (a.data || '').localeCompare(b.data || '') || (a.id || '').localeCompare(b.id || ''));
+    let running = 0;
+    for (const e of ev) {
+      if (e.kind === 'ent') running += e.quantidade;
+      else if (e.kind === 'sai') running -= e.quantidade;
+      else { // aj
+        const novaDiff = e.obj.qtdContada - running;
+        if (e.obj.qtdAnterior !== running || e.obj.diferenca !== novaDiff) ajustesRecalculados++;
+        e.obj.qtdAnterior = running;
+        e.obj.diferenca = novaDiff;
+        running = e.obj.qtdContada;
+      }
+    }
+  });
+
   // Marca que o seed inicial foi feito — a migração não re-seedará em boots futuros.
   state.seedContagemInicialFeito = true;
   await persist();
   broadcast();
-  res.json({
+  // Anexa info do recalc na resposta
+  const responseExtras = { ajustesRecalculados, skusRecalculados: skusRecalcular.size };
+  res.json(Object.assign({
     ok: true,
     removidos: removidos.length,
     preservados: state.ajustes.length,
     tipoComManuaisPreservados: tipoPreservar,
     codigosPreservados: [...codigosPreservar].sort((a,b)=>a-b),
-  });
+  }, responseExtras));
 });
 
 // Apaga saídas oriundas de importação do ERP (origem='erp-import'). Saídas manuais
