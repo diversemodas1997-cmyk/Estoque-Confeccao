@@ -347,29 +347,36 @@ function loadState() {
     // contagem inicial. Cobre tanto produtos auto-cadastrados quanto produtos manuais
     // ou seed que ficaram sem ajuste por algum motivo (seed parcial, deploy migrado, etc.).
     // Idempotente: SKUs com qualquer ajuste preexistente são pulados.
-    const ajustesIndex = new Set();
-    ajustes.forEach(a => ajustesIndex.add(a.codigo + '|' + a.tamanho));
+    // SÓ RODA UMA VEZ no ciclo de vida do sistema (controlado por flag seedContagemInicialFeito).
+    // Isso protege contra ressemeadura após o usuário zerar a contagem pra entrar manualmente.
     let contagensCriadas = 0;
-    const hojeIso = new Date().toISOString().slice(0, 10);
-    produtos.forEach(p => {
-      (p.tamanhos || []).forEach(t => {
-        if (ajustesIndex.has(p.codigo + '|' + t)) return;
-        ajustes.push({
-          id: uid(),
-          codigo: p.codigo,
-          tamanho: t,
-          data: hojeIso,
-          qtdContada: CONTAGEM_INICIAL_PADRAO,
-          qtdAnterior: 0,
-          diferenca: CONTAGEM_INICIAL_PADRAO,
-          motivo: CONTAGEM_INICIAL_MOTIVO_PREFIX + ' (preenchimento)',
-          origem: 'auto-fix-migration',
+    const seedJaFeito = !!data.seedContagemInicialFeito;
+    if (!seedJaFeito) {
+      const ajustesIndex = new Set();
+      ajustes.forEach(a => ajustesIndex.add(a.codigo + '|' + a.tamanho));
+      const hojeIso = new Date().toISOString().slice(0, 10);
+      produtos.forEach(p => {
+        (p.tamanhos || []).forEach(t => {
+          if (ajustesIndex.has(p.codigo + '|' + t)) return;
+          ajustes.push({
+            id: uid(),
+            codigo: p.codigo,
+            tamanho: t,
+            data: hojeIso,
+            qtdContada: CONTAGEM_INICIAL_PADRAO,
+            qtdAnterior: 0,
+            diferenca: CONTAGEM_INICIAL_PADRAO,
+            motivo: CONTAGEM_INICIAL_MOTIVO_PREFIX + ' (preenchimento)',
+            origem: 'auto-fix-migration',
+          });
+          ajustesIndex.add(p.codigo + '|' + t);
+          contagensCriadas++;
         });
-        ajustesIndex.add(p.codigo + '|' + t);
-        contagensCriadas++;
       });
-    });
-    if (contagensCriadas > 0) console.log('[state] criou', contagensCriadas, 'contagem(ns) inicial(is) em SKUs sem ajuste');
+      if (contagensCriadas > 0) console.log('[state] criou', contagensCriadas, 'contagem(ns) inicial(is) em SKUs sem ajuste');
+    } else {
+      console.log('[state] seed de contagem inicial já feito antes — pulando auto-seed (modo manual ativo)');
+    }
     if (contagensCriadas > 0) dirty = true;
     // Carrega usuários do arquivo isolado (primário). Garante defaults sempre presentes.
     const users = loadUsers();
@@ -378,6 +385,10 @@ function loadState() {
       console.log('[users] restaurou', adicionadosDefaults, 'usuário(s) default que estavam ausentes');
       persistUsers(users);
     }
+    // Marca que o seed inicial foi feito pra não re-seedar em boots futuros.
+    // Persiste 'true' uma única vez (independente de se fizemos seed agora ou não).
+    const seedContagemInicialFeito = seedJaFeito || contagensCriadas > 0 || ajustes.length > 0;
+    if (seedContagemInicialFeito && !data.seedContagemInicialFeito) dirty = true;
     return {
       versao: data.versao || 3,
       produtos,
@@ -387,6 +398,7 @@ function loadState() {
       config: Object.assign({ estoqueMin: 5, estoqueMax: 100 }, data.config || {}),
       users,
       atualizado_em: data.atualizado_em || null,
+      seedContagemInicialFeito,
       _dirty: dirty,
     };
   } catch (err) {
@@ -1103,6 +1115,40 @@ app.post('/api/seed-produtos', authMiddleware, adminOnly, async (req, res) => {
   await persist();
   broadcast();
   res.json({ ok: true });
+});
+
+// Apaga ajustes "auto" (contagens iniciais geradas pelo sistema). Para produtos do tipo
+// `tipoComManuais`, preserva ajustes manuais (não-auto). Para os demais, apaga TODOS os
+// ajustes (zerando a contagem). Usado pra limpeza antes de inserção manual de contagem.
+app.post('/api/admin/zerar-contagem-auto', authMiddleware, adminOnly, async (req, res) => {
+  const tipoPreservar = String((req.body && req.body.tipoComManuais) || '').toUpperCase().trim();
+  const codigosPreservar = new Set(
+    state.produtos.filter(p => (p.tipo || '').toUpperCase() === tipoPreservar).map(p => p.codigo)
+  );
+  const isAuto = (a) => (a.motivo || '').startsWith(CONTAGEM_INICIAL_MOTIVO_PREFIX) || a.origem === 'auto-fix-migration' || a.origem === 'erp-import';
+  const antes = state.ajustes.length;
+  const removidos = [];
+  state.ajustes = state.ajustes.filter(a => {
+    if (codigosPreservar.has(a.codigo)) {
+      // Para o tipo preservado: remove só os auto, mantém os manuais
+      if (isAuto(a)) { removidos.push(a); return false; }
+      return true;
+    }
+    // Para os demais tipos: remove TODOS os ajustes
+    removidos.push(a);
+    return false;
+  });
+  // Marca que o seed inicial foi feito — a migração não re-seedará em boots futuros.
+  state.seedContagemInicialFeito = true;
+  await persist();
+  broadcast();
+  res.json({
+    ok: true,
+    removidos: removidos.length,
+    preservados: state.ajustes.length,
+    tipoComManuaisPreservados: tipoPreservar,
+    codigosPreservados: [...codigosPreservar].sort((a,b)=>a-b),
+  });
 });
 
 app.post('/api/reset-catalogo', authMiddleware, adminOnly, async (req, res) => {
