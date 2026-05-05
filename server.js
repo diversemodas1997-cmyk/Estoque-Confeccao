@@ -1192,6 +1192,28 @@ app.post('/api/admin/zerar-contagem-auto', authMiddleware, adminOnly, async (req
   }, responseExtras));
 });
 
+// Diagnóstico: mostra contadores e categorias do estado pra ajudar debug
+app.get('/api/admin/diagnostico', authMiddleware, adminOnly, (req, res) => {
+  const isAuto = (a) => (a.motivo || '').startsWith(CONTAGEM_INICIAL_MOTIVO_PREFIX) || a.origem === 'auto-fix-migration' || a.origem === 'erp-import';
+  const saidasERP = state.saidas.filter(s => s.origem === 'erp-import');
+  const saidasManuais = state.saidas.filter(s => s.origem !== 'erp-import');
+  const ajustesAuto = state.ajustes.filter(isAuto);
+  const ajustesManuais = state.ajustes.filter(a => !isAuto(a));
+  const motivosUnicos = [...new Set(state.ajustes.map(a => a.motivo))];
+  const origensSaidas = [...new Set(state.saidas.map(s => s.origem || '(undefined)'))];
+  res.json({
+    versao: state.versao,
+    seedContagemInicialFeito: !!state.seedContagemInicialFeito,
+    produtos: state.produtos.length,
+    entradas: { total: state.entradas.length },
+    saidas: { total: state.saidas.length, erp: saidasERP.length, manuais: saidasManuais.length, origens: origensSaidas },
+    ajustes: { total: state.ajustes.length, auto: ajustesAuto.length, manuais: ajustesManuais.length, motivos: motivosUnicos },
+    sample_saidas_erp: saidasERP.slice(0, 3),
+    sample_ajustes_auto: ajustesAuto.slice(0, 3),
+    sample_ajustes_manuais: ajustesManuais.slice(0, 3),
+  });
+});
+
 // Reset completo de movimentação preservando APENAS ajustes manuais (contagem do usuário).
 // Apaga: TODAS as entradas, TODAS as saídas (manuais + ERP), e ajustes auto (Contagem inicial,
 // auto-fix-migration, erp-import). Mantém ajustes manuais (motivo não auto). Recalcula
