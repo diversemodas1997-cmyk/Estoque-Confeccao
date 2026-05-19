@@ -113,7 +113,10 @@ function tipoCanonico(tipo) {
 }
 
 const DESTINOS_VALIDOS = new Set(['cliente', 'cancelamento', 'devolucao', 'defeitos']);
-const TAMANHOS_ORDEM = ['P', 'M', 'G', 'GG', 'G1', 'G2', 'G3'];
+const TAMANHOS_ORDEM = ['PP', 'P', 'M', 'G', 'GG', 'G1', 'G2', 'G3'];
+// PP é restrito (opt-in por produto, ex.: SF.BERM.FEM). Seeds, migrações e auto-cadastro
+// usam TAMANHOS_PADRAO_PRODUTOS — assim PP nunca é adicionado automaticamente.
+const TAMANHOS_PADRAO_PRODUTOS = TAMANHOS_ORDEM.filter(t => t !== 'PP');
 const TAMANHOS_VALIDOS = new Set(TAMANHOS_ORDEM);
 const TAMANHOS_RANK = Object.fromEntries(TAMANHOS_ORDEM.map((t, i) => [t, i]));
 
@@ -186,7 +189,7 @@ function loadState() {
     const produtos = Array.isArray(data.produtos) ? data.produtos : [];
     // Migração: produtos com tamanhos vazios ou ausentes recebem todos os tamanhos padrão.
     // Cobre auto-cadastros antigos do ERP que herdavam só os tamanhos vistos no relatório.
-    const TODOS_TAMS = TAMANHOS_ORDEM.slice();
+    const TODOS_TAMS = TAMANHOS_PADRAO_PRODUTOS.slice();
     let migradosVazio = 0, reordenados = 0;
     produtos.forEach(p => {
       if (!Array.isArray(p.tamanhos) || p.tamanhos.length === 0) {
@@ -301,7 +304,7 @@ function loadState() {
     // Roda DEPOIS do dedup pra não conflitar com codigos reaproveitados. Cria produtos
     // faltantes com todos os tamanhos e custom: false (pra distinguir de cadastros manuais).
     const codigosExistentes = new Set(produtos.map(p => p.codigo));
-    const TAMS_PADRAO = TAMANHOS_ORDEM.slice();
+    const TAMS_PADRAO = TAMANHOS_PADRAO_PRODUTOS.slice();
     let cadastrosCriados = 0;
     ERP_CATALOGO.forEach(e => {
       if (codigosExistentes.has(e.codigo)) return;
@@ -927,7 +930,7 @@ app.post('/api/integracao/importar', authMiddleware, adminOnly, async (req, res)
       item,
       tipo: tipoFinal,
       cor: corFinal,
-      tamanhos: Array.from(TAMANHOS_VALIDOS),
+      tamanhos: TAMANHOS_PADRAO_PRODUTOS.slice(),
       preco: Number.isFinite(preco) && preco > 0 ? preco : 19.90,
       custom: !canonico,
       autoCadastro: !canonico,

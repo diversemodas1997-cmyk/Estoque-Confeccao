@@ -1224,7 +1224,10 @@
     return DESTINOS[d] || DESTINOS.cliente;
   }
 
-  const TAMANHOS_ORDEM = ['P','M','G','GG','G1','G2','G3'];
+  const TAMANHOS_ORDEM = ['PP','P','M','G','GG','G1','G2','G3'];
+  // PP é restrito a produtos opt-in (ex.: SF.BERM.FEM). Defaults (seed e checks) usam essa lista sem PP.
+  const TAMANHOS_PADRAO_PRODUTOS = TAMANHOS_ORDEM.filter(t => t !== 'PP');
+  const TIPOS_COM_PP = new Set(['SF.BERM.FEM']);
   const CORES_NOME = {
     'PRE': 'PRETO', 'BRA': 'BRANCO', 'VERM': 'VERMELHO', 'VERDE': 'VERDE',
     'BEGE': 'BEGE', 'MARINHO': 'AZUL MARINHO', 'MARROM': 'MARROM',
@@ -1311,7 +1314,7 @@
       tipo: e.tipo,
       cor: CORES_NOME[e.cor] || e.cor,
       corAbrev: e.cor,
-      tamanhos: TAMANHOS_ORDEM.slice(),
+      tamanhos: TAMANHOS_PADRAO_PRODUTOS.slice(),
       preco: PRECO_PADRAO,
       custom: false,
       descricaoErp: e.descricao,
@@ -1593,7 +1596,8 @@
     document.querySelector('#form-saida input[name=valor]').value = (PRECO_PADRAO * 2).toFixed(2);
     document.querySelector('#form-produto input[name=codigo]').value = proximoCodigo();
     document.querySelector('#form-produto input[name=preco]').value = PRECO_PADRAO.toFixed(2);
-    renderTamanhosChecks('prod-tamanhos-checks', []);
+    const tipoCadAtual = document.querySelector('#form-produto input[name=tipo]').value;
+    renderTamanhosChecks('prod-tamanhos-checks', [], tipoCadAtual);
   }
 
   function atualizarSelectTamanho(formSel, codigoSel, tamSel, opts) {
@@ -1609,11 +1613,13 @@
     else if (tams.length === 1) tamSel.value = tams[0];
   }
 
-  function renderTamanhosChecks(containerId, selecionados) {
+  function renderTamanhosChecks(containerId, selecionados, tipoAtual) {
     const c = document.getElementById(containerId);
     if (!c) return;
     const sel = new Set((selecionados || []).map(s => String(s).toUpperCase()));
-    c.innerHTML = TAMANHOS_ORDEM.map(t => {
+    const tipoUpper = String(tipoAtual || '').toUpperCase();
+    const visiveis = TAMANHOS_ORDEM.filter(t => t !== 'PP' || TIPOS_COM_PP.has(tipoUpper) || sel.has('PP'));
+    c.innerHTML = visiveis.map(t => {
       const checked = sel.has(t) ? 'checked' : '';
       const cls = sel.has(t) ? 'checked' : '';
       return '<label class="' + cls + '"><input type="checkbox" value="' + t + '" ' + checked + '> ' + t + '</label>';
@@ -2370,6 +2376,15 @@
     } catch (ex) { toast(ex.message, 'error'); }
   });
 
+  document.querySelector('#form-produto input[name=tipo]').addEventListener('input', (e) => {
+    const atuais = lerTamanhosChecks('prod-tamanhos-checks');
+    renderTamanhosChecks('prod-tamanhos-checks', atuais, e.target.value);
+  });
+  document.querySelector('#form-edit-produto input[name=tipo]').addEventListener('input', (e) => {
+    const atuais = lerTamanhosChecks('edit-tamanhos-checks');
+    renderTamanhosChecks('edit-tamanhos-checks', atuais, e.target.value);
+  });
+
   document.getElementById('form-produto').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     if (!isAdmin()) { toast('Apenas administradores podem cadastrar produtos.', 'error'); return; }
@@ -2388,7 +2403,7 @@
       ev.target.reset();
       document.querySelector('#form-produto input[name=codigo]').value = proximoCodigo();
       document.querySelector('#form-produto input[name=preco]').value = PRECO_PADRAO.toFixed(2);
-      renderTamanhosChecks('prod-tamanhos-checks', []);
+      renderTamanhosChecks('prod-tamanhos-checks', [], '');
     } catch (ex) { toast(ex.message, 'error'); }
   });
 
@@ -2496,7 +2511,7 @@
     f.tipo.value = p.tipo || '';
     f.cor.value = p.cor || '';
     f.preco.value = (p.preco || 0).toFixed(2);
-    renderTamanhosChecks('edit-tamanhos-checks', Array.isArray(p.tamanhos) ? p.tamanhos : []);
+    renderTamanhosChecks('edit-tamanhos-checks', Array.isArray(p.tamanhos) ? p.tamanhos : [], p.tipo);
     document.getElementById('modal-edit').style.display = 'flex';
     setTimeout(() => f.item.focus(), 50);
   }
